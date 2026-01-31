@@ -297,9 +297,9 @@ function registerImportHooks(registerHook, peertubeHelpers, settingsManager) {
     target: 'filter:api.video.post-import-url.accept.result',
     handler: async (result, params) => {
       try {
-        const { videoImport } = params
+        const { videoImport, video } = params
 
-        if (!videoImport || !videoImport.video) {
+        if (!videoImport || !video) {
           return result
         }
 
@@ -311,12 +311,12 @@ function registerImportHooks(registerHook, peertubeHelpers, settingsManager) {
           return result
         }
 
-        logger.info(`Video imported from YouTube: ${youtubeId} -> ${videoImport.video.uuid}`)
+        logger.info(`Video imported from YouTube: ${youtubeId} -> ${video.uuid}`)
 
         // Save mapping
         await saveYouTubeMapping(
           peertubeHelpers,
-          videoImport.video.uuid,
+          video.uuid,
           youtubeId
         )
 
@@ -332,7 +332,7 @@ function registerImportHooks(registerHook, peertubeHelpers, settingsManager) {
         if (mode === 'remove') {
           await queueVideoProcessing(
             peertubeHelpers,
-            videoImport.video.uuid,
+            video.uuid,
             youtubeId
           )
         }
