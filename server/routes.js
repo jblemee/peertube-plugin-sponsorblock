@@ -106,6 +106,17 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
 
       const youtubeId = mappings[0].youtube_id
 
+      // If video was already processed by FFmpeg, don't skip segments client-side
+      const [processed] = await database.query(`
+        SELECT id FROM plugin_sponsorblock_processing_queue
+        WHERE video_uuid = $1 AND status = 'done'
+        LIMIT 1
+      `, { bind: [videoUuid] })
+
+      if (processed && processed.length > 0) {
+        return res.json({ videoUuid, youtubeId, segments: [], processed: true })
+      }
+
       // Get enabled categories from settings
       const enabledCategories = await getEnabledCategories(settingsManager)
 
