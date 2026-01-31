@@ -75,6 +75,12 @@ async function initDashboard(peertubeHelpers) {
     statsRow.appendChild(el)
   }
 
+  // Info note about removal scope
+  const noteEl = document.createElement('div')
+  noteEl.className = 'sponsorblock-admin-note'
+  noteEl.textContent = await t('admin-note-remove') || 'Note: Permanent removal (Process) removes all SponsorBlock segment types regardless of the category checkboxes above. Category settings only affect client-side skipping.'
+  root.appendChild(noteEl)
+
   // Action buttons
   const actionsRow = document.createElement('div')
   actionsRow.className = 'sponsorblock-admin-actions'

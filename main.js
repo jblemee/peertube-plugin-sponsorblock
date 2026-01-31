@@ -223,8 +223,15 @@ async function initDatabase(peertubeHelpers) {
         peertube_uuid UUID PRIMARY KEY,
         youtube_id VARCHAR(11) NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
-        last_sync TIMESTAMP
+        last_sync TIMESTAMP,
+        segments_removed BOOLEAN DEFAULT FALSE
       );
+    `)
+
+    // Migration: add segments_removed column if missing (existing installs)
+    await database.query(`
+      ALTER TABLE plugin_sponsorblock_mapping
+        ADD COLUMN IF NOT EXISTS segments_removed BOOLEAN DEFAULT FALSE;
     `)
 
     await database.query(`
@@ -571,12 +578,19 @@ async function startWorker(peertubeHelpers, settingsManager) {
           }
         }
 
-        // Mark as done
+        // Mark job as done
         await database.query(`
           UPDATE plugin_sponsorblock_processing_queue
           SET status = 'done', completed_at = NOW()
           WHERE id = $1
         `, { bind: [job.id] })
+
+        // Mark mapping as having segments physically removed
+        await database.query(`
+          UPDATE plugin_sponsorblock_mapping
+          SET segments_removed = TRUE
+          WHERE peertube_uuid = $1
+        `, { bind: [job.video_uuid] })
 
         logger.info(`Job ${job.id} completed successfully`)
 

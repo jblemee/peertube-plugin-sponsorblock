@@ -76,5 +76,7 @@
   "admin-queue-error": "Erreur",
 
   "admin-last-sync-never": "Jamais",
-  "admin-last-sync-ago": "Il y a {time}"
+  "admin-last-sync-ago": "Il y a {time}",
+
+  "admin-note-remove": "Note : La suppression permanente (Traiter) supprime tous les types de segments SponsorBlock, quelles que soient les catégories cochées ci-dessus. Les catégories ne contrôlent que le saut côté client."
 }

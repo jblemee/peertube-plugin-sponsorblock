@@ -57,7 +57,7 @@ Open **Administration > Plugins/Themes > SponsorBlock > Settings**.
 
 ### Segment Categories
 
-Each SponsorBlock category can be individually enabled or disabled:
+Each SponsorBlock category can be individually enabled or disabled. **These settings only affect client-side skipping.** Permanent removal (FFmpeg) always removes all segment types regardless of these settings.
 
 | Category | Default | What it skips |
 |----------|---------|---------------|
@@ -111,13 +111,16 @@ Permanent segment removal can be triggered in two ways:
 - **Automatically** (remove mode): on import, the video is queued for FFmpeg processing
 - **Manually** (any mode): click the **Process** button in the admin dashboard
 
+**Important:** Permanent removal always removes **all** SponsorBlock segment types (sponsors, intros, outros, etc.), regardless of the category checkboxes in the settings. Category settings only control client-side skipping.
+
 When a video is queued:
 
 1. A background worker (polling every 30 seconds) picks up the job
 2. FFmpeg cuts the segments using `-c copy` (no re-encoding, no quality loss)
 3. All video file versions (web-videos, HLS, originals) are processed
 4. The original file is replaced with the cleaned version
-5. Up to 3 automatic retries on failure
+5. Once processed, the video is marked as such and the client no longer skips segments (they have already been removed)
+6. Up to 3 automatic retries on failure
 
 ---
 

@@ -76,5 +76,7 @@
   "admin-queue-error": "Error",
 
   "admin-last-sync-never": "Never",
-  "admin-last-sync-ago": "{time} ago"
+  "admin-last-sync-ago": "{time} ago",
+
+  "admin-note-remove": "Note: Permanent removal (Process) removes all SponsorBlock segment types regardless of the category checkboxes above. Category settings only affect client-side skipping."
 }

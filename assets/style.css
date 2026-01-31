@@ -214,6 +214,17 @@
   letter-spacing: 0.5px;
 }
 
+/* Info note */
+.sponsorblock-admin-note {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  background: rgba(42, 109, 212, 0.1);
+  color: #7eaaed;
+  border: 1px solid rgba(42, 109, 212, 0.25);
+}
+
 /* Action buttons bar */
 .sponsorblock-admin-actions {
   display: flex;

@@ -91,9 +91,9 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
     try {
       const database = peertubeHelpers.database
 
-      // Get YouTube ID for this video
+      // Get YouTube ID and removal status for this video
       const [mappings] = await database.query(`
-        SELECT youtube_id FROM plugin_sponsorblock_mapping
+        SELECT youtube_id, segments_removed FROM plugin_sponsorblock_mapping
         WHERE peertube_uuid = $1
       `, { bind: [videoUuid] })
 
@@ -106,14 +106,8 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
 
       const youtubeId = mappings[0].youtube_id
 
-      // If video was already processed by FFmpeg, don't skip segments client-side
-      const [processed] = await database.query(`
-        SELECT id FROM plugin_sponsorblock_processing_queue
-        WHERE video_uuid = $1 AND status = 'done'
-        LIMIT 1
-      `, { bind: [videoUuid] })
-
-      if (processed && processed.length > 0) {
+      // If segments were physically removed by FFmpeg, don't skip client-side
+      if (mappings[0].segments_removed) {
         return res.json({ videoUuid, youtubeId, segments: [], processed: true })
       }
 

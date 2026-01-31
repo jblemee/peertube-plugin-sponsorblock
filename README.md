@@ -21,7 +21,7 @@ See the [User Guide](https://github.com/jblemee/peertube-plugin-sponsorblock/blo
 - SponsorBlock segment retrieval via API
 - Automatic segment skipping in the video player
 - Local segment caching
-- Per-category configuration (sponsor, intro, outro, etc.)
+- Per-category configuration for client-side skipping (sponsor, intro, outro, etc.)
 
 ### Phase 2: Admin dashboard & sync
 - Admin dashboard with statistics and mappings table
@@ -33,7 +33,7 @@ See the [User Guide](https://github.com/jblemee/peertube-plugin-sponsorblock/blo
 ### Phase 3: Permanent removal
 - Background processing worker (30s polling)
 - Priority queue with retries
-- FFmpeg cutting (`-c copy`) and concatenation
+- FFmpeg cutting (`-c copy`) and concatenation — removes all segment types
 - Support for web-videos, HLS, and original files
 - API routes: single and bulk processing
 - Automatic on import in `remove` mode, or manual via the Process button in any mode
@@ -148,11 +148,14 @@ AGPL-3.0 (for compatibility with PeerTube)
 ### Skip mode
 - Segments are still downloaded (no bandwidth savings)
 - Works only in the PeerTube web player
+- Only skips categories enabled in the plugin settings
 
 ### Permanent removal (remove mode or manual Process)
+- Removes **all** SponsorBlock segment types, regardless of category settings
 - Irreversible modification of video files
 - Uses `ffmpeg -c copy` (remuxing without re-encoding, fast and lossless)
 - Comment timestamps will be shifted after removal
+- Once processed, the client no longer skips segments (they have been physically removed)
 - Automatic retry (3 attempts) on error
 - **Recommended only with automatic backups**
 - Requires `ffmpeg` and `ffprobe` in the `PATH`
