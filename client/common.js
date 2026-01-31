@@ -3,10 +3,8 @@
  * Loaded on all pages
  */
 
-function register({ registerHook: _registerHook, peertubeHelpers: _peertubeHelpers }) {
-  console.log('[SponsorBlock] Common client script loaded');
-
-  // Add custom styles or global functionality here if needed
+function register() {
+  // Loaded on all pages
 }
 
 export { register };

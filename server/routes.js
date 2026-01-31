@@ -2,6 +2,12 @@
  * Server-side API routes
  */
 
+const {
+  extractYoutubeId,
+  getEnabledCategories,
+  fetchAndCacheSegments
+} = require('./shared');
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isValidUuid(value) {
@@ -51,24 +57,6 @@ function createRateLimiter(maxTokens, windowMs) {
     bucket.tokens--;
     next();
   };
-}
-
-const ALL_CATEGORIES = [
-  'sponsor', 'selfpromo', 'interaction', 'intro', 'outro',
-  'preview', 'music_offtopic', 'filler'
-];
-
-const CATEGORIES_PARAM = `&categories=${encodeURIComponent(JSON.stringify(ALL_CATEGORIES))}`;
-
-async function getEnabledCategories(settingsManager) {
-  const enabled = [];
-  for (const cat of ALL_CATEGORIES) {
-    const value = await settingsManager.getSetting(`category_${cat}`);
-    if (value === true || value === 'true') {
-      enabled.push(cat);
-    }
-  }
-  return enabled;
 }
 
 async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
@@ -236,7 +224,7 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
       `, { bind: [videoUuid, youtubeId] });
 
       // Fetch segments from SponsorBlock
-      const segments = await fetchAndCacheSegments(database, youtubeId, logger);
+      const segments = await fetchAndCacheSegments({ database, settingsManager, youtubeId, logger });
 
       logger.info(`Manual mapping created: ${videoUuid} -> ${youtubeId} (${segments.length} segments)`);
 
@@ -303,7 +291,7 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
 
         // Fetch segments
         try {
-          await fetchAndCacheSegments(database, youtubeId, logger);
+          await fetchAndCacheSegments({ database, settingsManager, youtubeId, logger });
           mapped++;
         } catch (err) {
           errors.push(`Failed to fetch segments for ${youtubeId}: ${err.message}`);
@@ -417,11 +405,12 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
         SELECT DISTINCT m.peertube_uuid, m.youtube_id
         FROM plugin_sponsorblock_mapping m
         INNER JOIN plugin_sponsorblock_segments s ON s.youtube_id = m.youtube_id
-        WHERE NOT EXISTS (
-          SELECT 1 FROM plugin_sponsorblock_processing_queue q
-          WHERE q.video_uuid = m.peertube_uuid
-            AND q.status IN ('done', 'pending', 'processing')
-        )
+        WHERE m.segments_removed = FALSE
+          AND NOT EXISTS (
+            SELECT 1 FROM plugin_sponsorblock_processing_queue q
+            WHERE q.video_uuid = m.peertube_uuid
+              AND q.status IN ('done', 'pending', 'processing')
+          )
       `);
 
       let queued = 0;
@@ -580,29 +569,37 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
 
       const youtubeId = mappings[0].youtube_id;
 
-      // Delete the mapping
-      await database.query(
-        'DELETE FROM plugin_sponsorblock_mapping WHERE peertube_uuid = $1',
-        { bind: [videoUuid] }
-      );
-
-      // Delete queue entries for this video
-      await database.query(
-        'DELETE FROM plugin_sponsorblock_processing_queue WHERE video_uuid = $1',
-        { bind: [videoUuid] }
-      );
-
-      // Delete segments only if no other mapping references the same youtube_id
-      const [otherMappings] = await database.query(
-        'SELECT 1 FROM plugin_sponsorblock_mapping WHERE youtube_id = $1 LIMIT 1',
-        { bind: [youtubeId] }
-      );
-
-      if (!otherMappings || otherMappings.length === 0) {
+      await database.query('BEGIN');
+      try {
+        // Delete the mapping
         await database.query(
-          'DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1',
+          'DELETE FROM plugin_sponsorblock_mapping WHERE peertube_uuid = $1',
+          { bind: [videoUuid] }
+        );
+
+        // Delete queue entries for this video
+        await database.query(
+          'DELETE FROM plugin_sponsorblock_processing_queue WHERE video_uuid = $1',
+          { bind: [videoUuid] }
+        );
+
+        // Delete segments only if no other mapping references the same youtube_id
+        const [otherMappings] = await database.query(
+          'SELECT 1 FROM plugin_sponsorblock_mapping WHERE youtube_id = $1 LIMIT 1',
           { bind: [youtubeId] }
         );
+
+        if (!otherMappings || otherMappings.length === 0) {
+          await database.query(
+            'DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1',
+            { bind: [youtubeId] }
+          );
+        }
+
+        await database.query('COMMIT');
+      } catch (txError) {
+        await database.query('ROLLBACK');
+        throw txError;
       }
 
       logger.info(`Deleted mapping ${videoUuid} -> ${youtubeId}`);
@@ -640,7 +637,7 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
       ;(async () => {
         for (const mapping of (mappings || [])) {
           try {
-            await fetchAndCacheSegments(database, mapping.youtube_id, logger);
+            await fetchAndCacheSegments({ database, settingsManager, youtubeId: mapping.youtube_id, logger });
             await database.query(
               'UPDATE plugin_sponsorblock_mapping SET last_sync = NOW() WHERE peertube_uuid = $1',
               { bind: [mapping.peertube_uuid] }
@@ -693,53 +690,8 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
 
       const youtubeId = mappings[0].youtube_id;
 
-      // Fetch fresh segments
-      const apiUrl = 'https://sponsor.ajay.app';
-      const response = await fetch(`${apiUrl}/api/skipSegments?videoID=${youtubeId}${CATEGORIES_PARAM}`);
-
-      if (!response.ok) {
-        return res.status(response.status).json({
-          error: 'Failed to fetch from SponsorBlock API'
-        });
-      }
-
-      const segments = await response.json();
-
-      // Delete old and insert new segments in a transaction
-      await database.query('BEGIN');
-      let insertedCount = 0;
-      try {
-        await database.query(`
-          DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
-        `, { bind: [youtubeId] });
-
-        for (const segment of segments) {
-          if (!validateSegment(segment)) {
-            logger.warn(`Skipping invalid segment from API: ${JSON.stringify(segment).slice(0, 200)}`);
-            continue;
-          }
-          await database.query(`
-            INSERT INTO plugin_sponsorblock_segments
-            (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (segment_uuid) DO NOTHING
-          `, { bind: [
-            youtubeId,
-            segment.UUID,
-            segment.segment[0],
-            segment.segment[1],
-            segment.category,
-            segment.actionType || 'skip',
-            segment.votes || 0
-          ] });
-          insertedCount++;
-        }
-
-        await database.query('COMMIT');
-      } catch (txError) {
-        await database.query('ROLLBACK');
-        throw txError;
-      }
+      // Fetch and cache fresh segments
+      const segments = await fetchAndCacheSegments({ database, settingsManager, youtubeId, logger });
 
       // Update last_sync timestamp
       await database.query(`
@@ -748,11 +700,9 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
         WHERE peertube_uuid = $1
       `, { bind: [videoUuid] });
 
-      logger.info(`Synced ${insertedCount} segments for ${videoUuid}`);
-
       res.json({
         success: true,
-        segmentsCount: insertedCount,
+        segmentsCount: segments.length,
         youtubeId
       });
 
@@ -765,115 +715,4 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
   });
 }
 
-/**
- * Extract YouTube ID from a URL or raw ID string
- */
-function extractYoutubeId(input) {
-  if (!input) return null;
-
-  // Already a raw ID
-  if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) {
-    return input.trim();
-  }
-
-  // Try URL patterns
-  try {
-    const url = new URL(input);
-
-    // youtube.com/watch?v=ID
-    if (url.searchParams.has('v')) {
-      const v = url.searchParams.get('v');
-      if (/^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
-    }
-
-    // youtu.be/ID or youtube.com/embed/ID or youtube.com/shorts/ID
-    const pathMatch = url.pathname.match(/^\/(?:embed\/|shorts\/|v\/)?([a-zA-Z0-9_-]{11})/);
-    if (pathMatch) return pathMatch[1];
-  } catch {
-    // Not a valid URL
-  }
-
-  return null;
-}
-
-/**
- * Validate a segment from the SponsorBlock API response
- * Returns true if the segment has valid shape, false otherwise
- */
-function validateSegment(segment) {
-  if (!segment || typeof segment !== 'object') return false;
-  if (typeof segment.UUID !== 'string' || segment.UUID.length === 0 || segment.UUID.length > 128) return false;
-  if (!Array.isArray(segment.segment) || segment.segment.length !== 2) return false;
-  const [start, end] = segment.segment;
-  if (typeof start !== 'number' || typeof end !== 'number') return false;
-  if (start < 0 || end < 0 || start >= end) return false;
-  if (!isFinite(start) || !isFinite(end)) return false;
-  if (typeof segment.category !== 'string' || segment.category.length === 0 || segment.category.length > 50) return false;
-  if (segment.votes !== undefined && typeof segment.votes !== 'number') return false;
-  return true;
-}
-
-/**
- * Fetch segments from SponsorBlock API and cache them in database
- */
-async function fetchAndCacheSegments(database, youtubeId, logger) {
-  const apiUrl = 'https://sponsor.ajay.app';
-  const response = await fetch(`${apiUrl}/api/skipSegments?videoID=${youtubeId}${CATEGORIES_PARAM}`);
-
-  if (response.status === 404) {
-    // No segments found on SponsorBlock — not an error
-    return [];
-  }
-
-  if (!response.ok) {
-    throw new Error(`SponsorBlock API error: ${response.status}`);
-  }
-
-  const apiSegments = await response.json();
-
-  // Delete old and insert new segments in a transaction
-  await database.query('BEGIN');
-  try {
-    await database.query(`
-      DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
-    `, { bind: [youtubeId] });
-
-    const segments = [];
-    for (const segment of apiSegments) {
-      if (!validateSegment(segment)) {
-        logger.warn(`Skipping invalid segment from API: ${JSON.stringify(segment).slice(0, 200)}`);
-        continue;
-      }
-      await database.query(`
-        INSERT INTO plugin_sponsorblock_segments
-        (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (segment_uuid) DO NOTHING
-      `, { bind: [
-        youtubeId,
-        segment.UUID,
-        segment.segment[0],
-        segment.segment[1],
-        segment.category,
-        segment.actionType || 'skip',
-        segment.votes || 0
-      ] });
-      segments.push({
-        segment_uuid: segment.UUID,
-        start_time: segment.segment[0],
-        end_time: segment.segment[1],
-        category: segment.category,
-        action_type: segment.actionType || 'skip',
-        votes: segment.votes || 0
-      });
-    }
-
-    await database.query('COMMIT');
-    return segments;
-  } catch (txError) {
-    await database.query('ROLLBACK');
-    throw txError;
-  }
-}
-
-module.exports = { registerRoutes, ALL_CATEGORIES };
+module.exports = { registerRoutes };

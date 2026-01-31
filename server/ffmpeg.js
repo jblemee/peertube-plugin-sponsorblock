@@ -214,12 +214,16 @@ async function findVideoFiles(database, videoUuid, storagePath, logger) {
     }
 
     // Find original video files (glob for uuid in filename)
-    const originalDir = path.join(storagePath, 'original-video-files');
+    const originalDir = path.resolve(storagePath, 'original-video-files');
     if (await fileExists(originalDir)) {
       const entries = await fsPromises.readdir(originalDir);
       for (const entry of entries) {
         if (entry.includes(videoUuid)) {
-          const filePath = path.join(originalDir, entry);
+          const filePath = path.resolve(originalDir, entry);
+          if (!filePath.startsWith(originalDir + path.sep)) {
+            logger.warn(`Path traversal blocked for original file: ${entry}`);
+            continue;
+          }
           files.push({ type: 'original', path: filePath });
         }
       }

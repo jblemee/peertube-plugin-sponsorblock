@@ -10,6 +10,9 @@ function register({ registerHook, peertubeHelpers }) {
   const skippedSegments = new Set();
   let skippingActive = false;
   let playerRef = null;
+  let currentTimeUpdateHandler = null;
+  let currentVideoEl = null;
+  let showNotifications = true;
 
   // Hook: When video is loaded
   registerHook({
@@ -17,10 +20,25 @@ function register({ registerHook, peertubeHelpers }) {
     handler: async ({ video, videojs }) => {
       console.log('[SponsorBlock] Video loaded:', video.uuid);
 
+      // Clean up previous listeners
+      if (currentVideoEl && currentTimeUpdateHandler) {
+        currentVideoEl.removeEventListener('timeupdate', currentTimeUpdateHandler);
+        currentTimeUpdateHandler = null;
+        currentVideoEl = null;
+      }
+
       segments = [];
       skippedSegments.clear();
       skippingActive = false;
       playerRef = videojs;
+
+      // Read show_notifications setting
+      try {
+        const settings = await peertubeHelpers.getSettings();
+        showNotifications = settings['show_notifications'] !== false && settings['show_notifications'] !== 'false';
+      } catch {
+        showNotifications = true;
+      }
 
       try {
         // Fetch segments for this video
@@ -99,7 +117,7 @@ function register({ registerHook, peertubeHelpers }) {
 
     let lastCheckTime = 0;
 
-    videoEl.addEventListener('timeupdate', () => {
+    currentTimeUpdateHandler = () => {
       const currentTime = videoEl.currentTime;
 
       // Throttle checks to avoid performance issues
@@ -120,13 +138,17 @@ function register({ registerHook, peertubeHelpers }) {
             videoEl.currentTime = segment.end_time;
             skippedSegments.add(segmentKey);
 
-            // Show notification
-            showSkipNotification(segment);
+            if (showNotifications) {
+              showSkipNotification(segment);
+            }
           }
           break;
         }
       }
-    });
+    };
+
+    currentVideoEl = videoEl;
+    videoEl.addEventListener('timeupdate', currentTimeUpdateHandler);
 
     // Add visual indicators to the progress bar
     addProgressBarMarkers(player);
