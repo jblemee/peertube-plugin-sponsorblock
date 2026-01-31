@@ -27,7 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] - 2026-01-31
 
 ### Fixed
-- **Video import hook**: use `params.video` instead of `videoImport.video` (PeerTube uses uppercase `Video` in Sequelize)
 - **Category settings ignored**: settings were registered but never read; segments endpoint now filters by enabled categories
 - **SponsorBlock API only returning sponsors**: all API calls now include `categories` parameter to fetch all segment types
 - **Admin dashboard not rendering**: no longer depends on `html`-type setting; injects its own container into the settings page
@@ -48,6 +47,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Admin dashboard with stats, mappings table, and action buttons
 - Periodic sync with configurable interval
 - Scan Imports for existing YouTube videos
+
+## [0.3.0] - 2026-01-31
+
+### Fixed
+- **Video import hook**: use `params.video` instead of `videoImport.video` (PeerTube uses uppercase `Video` in Sequelize)
+
+### Security
+- Added authentication checks on `POST /sync/:videoUuid` and `GET /mapping/:videoUuid` routes
+- Added SSRF protection (`validateApiUrl`) rejecting private IPs and non-HTTPS URLs
+- Replaced `innerHTML` with safe DOM manipulation (`textContent` + `createElement`)
+- Added SponsorBlock API response validation (`validateSegment` helper)
+- Wrapped all delete/insert segment operations in database transactions
+- Added UUID validation on all route params accepting `:videoUuid`
+- Added path traversal protection in `ffmpeg.js` file path resolution
+- Added in-memory token-bucket rate limiter on `GET /segments` endpoint
+- Made `api_url` setting private to hide it from unauthenticated users
+
+## [0.2.1] - 2026-01-31
+
+### Changed
+- Switched all URLs from GitLab to GitHub repository
+
+## [0.2.0] - 2026-01-31
+
+### Added
+- Initial public release with core functionality
 
 ## [0.1.0] - 2026-01-31
 
@@ -80,5 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [1.0.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.5.0...v1.0.0
 [0.5.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.1.0...v0.4.0
+[0.4.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/releases/tag/v0.1.0
