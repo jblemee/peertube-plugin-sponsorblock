@@ -84,10 +84,12 @@ YouTube Import → Post-import hook → YouTube ID extraction → SponsorBlock A
                                                             ↓
                                                      Cache in DB
                                                       ↓            ↓
-                               (remove mode)     (skip mode)
-                               Queue processing  Client skip
-                                     ↓                  ↓
-                               Worker (30s)    API /segments/:uuid → Automatic skip
+                               (remove mode)     (always)
+                               Auto-queue        Client skip via API /segments/:uuid
+                                     ↓
+                  Manual Process → Processing queue ← Process button (any mode)
+                                     ↓
+                               Worker (30s)
                                      ↓
                                FFmpeg cut + concat → File replacement
 ```
@@ -98,7 +100,7 @@ The plugin creates 3 tables:
 
 1. **`plugin_sponsorblock_mapping`**: YouTube ID to PeerTube UUID mapping
 2. **`plugin_sponsorblock_segments`**: SponsorBlock segments cache
-3. **`plugin_sponsorblock_processing_queue`**: Queue for "remove" mode
+3. **`plugin_sponsorblock_processing_queue`**: Queue for FFmpeg processing (auto in remove mode, manual via Process button in any mode)
 
 ## Testing the Plugin
 
@@ -160,12 +162,12 @@ curl -X POST $BASE/sync-all -H "Authorization: Bearer TOKEN"
 curl -X DELETE $BASE/mapping/{VIDEO_UUID} -H "Authorization: Bearer TOKEN"
 ```
 
-### 5. Test permanent removal mode
+### 5. Test permanent removal
 
-1. Set the mode to `remove` in the plugin settings
-2. Verify that `storage_path` points to the correct directory
-3. Verify FFmpeg: `ffmpeg -version && ffprobe -version`
-4. Import a YouTube video with known segments
+1. Verify that `storage_path` points to the correct directory
+2. Verify FFmpeg: `ffmpeg -version && ffprobe -version`
+3. Import a YouTube video with known segments
+4. Either set mode to `remove` for auto-queue, or click **Process** in the dashboard
 5. Check the queue in the database:
    ```bash
    sudo -u postgres psql peertube_prod -c "SELECT id, video_uuid, status, priority FROM plugin_sponsorblock_processing_queue;"

@@ -89,12 +89,6 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
     }
 
     try {
-      // If skipping is disabled, return no segments
-      const skipEnabled = await settingsManager.getSetting('skip_enabled')
-      if (skipEnabled === false || skipEnabled === 'false') {
-        return res.json({ videoUuid, segments: [] })
-      }
-
       const database = peertubeHelpers.database
 
       // Get YouTube ID for this video

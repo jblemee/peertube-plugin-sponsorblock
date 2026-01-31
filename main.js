@@ -131,13 +131,17 @@ async function unregister() {
  * Register plugin settings
  */
 function registerSettings(registerSetting) {
-  // Skip segments during playback
+  // Mode: skip (client-side) or remove (automatic permanent deletion)
   registerSetting({
-    name: 'skip_enabled',
-    label: 'Skip segments during playback',
-    type: 'input-checkbox',
-    default: true,
-    descriptionHTML: 'When enabled, segments are automatically skipped in the video player. Permanent removal via FFmpeg can be triggered independently from the dashboard.'
+    name: 'mode',
+    label: 'Operation mode',
+    type: 'select',
+    options: [
+      { label: 'Skip segments (client-side)', value: 'skip' },
+      { label: 'Remove segments automatically (FFmpeg)', value: 'remove' }
+    ],
+    default: 'skip',
+    descriptionHTML: 'Skip: segments are skipped during playback. Remove: segments are also automatically cut from video files on import. In both modes, you can trigger permanent removal manually via the Process button in the dashboard.'
   })
 
   // Enable/disable categories
@@ -355,6 +359,15 @@ function registerHooks(registerHook, peertubeHelpers, settingsManager) {
           youtubeId
         )
 
+        // Auto-queue for FFmpeg processing in remove mode
+        const mode = await settingsManager.getSetting('mode')
+        if (mode === 'remove') {
+          await queueVideoProcessing(
+            peertubeHelpers,
+            video.uuid,
+            youtubeId
+          )
+        }
 
       } catch (error) {
         logger.error('Error in post-import hook', error)

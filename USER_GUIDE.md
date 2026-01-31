@@ -49,10 +49,11 @@ Open **Administration > Plugins/Themes > SponsorBlock > Settings**.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| **Operation mode** | `Skip segments (client-side)` | **Skip**: segments are skipped during playback in the browser. **Remove**: segments are permanently cut from video files using FFmpeg. |
+| **Operation mode** | `Skip segments (client-side)` | **Skip**: segments are skipped during playback in the browser. **Remove**: segments are also automatically cut from video files on import using FFmpeg. |
 
-- **Skip mode** is safe and reversible. Recommended for most instances.
-- **Remove mode** is irreversible. Only use with backups enabled. Requires `ffmpeg` and `ffprobe` in the system `PATH`.
+- **Skip mode** is safe and reversible. Recommended for most instances. You can still trigger permanent removal manually via the **Process** button in the dashboard.
+- **Remove mode** automatically queues videos for FFmpeg processing on import. Irreversible. Only use with backups enabled. Requires `ffmpeg` and `ffprobe` in the system `PATH`.
+- In both modes, segments are skipped in the player and the **Process** button is always available.
 
 ### Segment Categories
 
@@ -103,16 +104,20 @@ When a viewer opens a video that has mapped segments:
 3. When playback enters a segment, the player automatically jumps to the end of it
 4. A notification briefly appears: *"Skipped Sponsor (12.5s)"*
 
-### Permanent removal (Remove mode)
+### Permanent removal (FFmpeg)
 
-When remove mode is enabled:
+Permanent segment removal can be triggered in two ways:
 
-1. On import, the video is additionally queued for FFmpeg processing
-2. A background worker (polling every 30 seconds) picks up queued jobs
-3. FFmpeg cuts the segments using `-c copy` (no re-encoding, no quality loss)
-4. All video file versions (web-videos, HLS, originals) are processed
-5. The original file is replaced with the cleaned version
-6. Up to 3 automatic retries on failure
+- **Automatically** (remove mode): on import, the video is queued for FFmpeg processing
+- **Manually** (any mode): click the **Process** button in the admin dashboard
+
+When a video is queued:
+
+1. A background worker (polling every 30 seconds) picks up the job
+2. FFmpeg cuts the segments using `-c copy` (no re-encoding, no quality loss)
+3. All video file versions (web-videos, HLS, originals) are processed
+4. The original file is replaced with the cleaned version
+5. Up to 3 automatic retries on failure
 
 ---
 
@@ -135,7 +140,7 @@ Four cards display at-a-glance metrics:
 |--------|-------------|
 | **Scan Imports** | Scans the PeerTube `videoImport` table for YouTube URLs, creates mappings for any that don't already exist, and fetches their segments. Use this after installing the plugin on an instance with existing YouTube imports. |
 | **Sync All** | Re-fetches segments from SponsorBlock for every mapped video. Runs in the background with 200ms rate limiting between API calls. |
-| **Process All** | Queues every mapped video that has segments but has not yet been processed for FFmpeg removal. Only relevant in remove mode. |
+| **Process All** | Queues every mapped video that has segments but has not yet been processed for FFmpeg removal. Works in any mode. |
 
 ### Mappings Table
 
@@ -143,7 +148,7 @@ Each row shows one mapped video:
 
 | Column | Description |
 |--------|-------------|
-| Video UUID | Truncated PeerTube UUID (hover for full value) |
+| Video | Video title (link to watch page), or full UUID if video was deleted |
 | YouTube ID | The 11-character YouTube video ID |
 | Segments | Number of cached SponsorBlock segments |
 | Time Saved | Total segment duration for this video |
@@ -156,7 +161,7 @@ Each row shows one mapped video:
 | Button | What it does |
 |--------|-------------|
 | **Sync** | Re-fetches segments from SponsorBlock for this single video and updates the cache. |
-| **Process** | Queues this video for FFmpeg segment removal. Only useful in remove mode. |
+| **Process** | Queues this video for FFmpeg segment removal. Works in any mode. |
 | **Delete** | Removes the mapping. If no other video shares the same YouTube ID, the cached segments are also deleted. Asks for confirmation before proceeding. |
 
 ---

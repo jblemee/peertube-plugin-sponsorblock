@@ -1,6 +1,8 @@
 {
-  "skip-enabled": "Skip segments during playback",
-  "skip-description": "When enabled, segments are automatically skipped in the video player. Permanent removal via FFmpeg can be triggered independently from the dashboard.",
+  "operation-mode": "Operation mode",
+  "skip-segments": "Skip segments (client-side)",
+  "remove-segments": "Remove segments automatically (FFmpeg)",
+  "mode-description": "Skip: segments are skipped during playback. Remove: segments are also automatically cut from video files on import. In both modes, you can trigger permanent removal manually via the Process button in the dashboard.",
   "category-sponsor": "Sponsors",
   "category-selfpromo": "Self-promotion",
   "category-interaction": "Interaction reminders",

@@ -1,6 +1,6 @@
 # PeerTube Plugin SponsorBlock
 
-PeerTube plugin to integrate SponsorBlock and automatically skip (or permanently remove) sponsor segments from videos imported from YouTube.
+PeerTube plugin to integrate SponsorBlock and automatically skip sponsor segments from videos imported from YouTube. Optionally, segments can be permanently removed from video files via FFmpeg.
 
 ## Goal
 
@@ -36,7 +36,7 @@ See the [User Guide](https://github.com/jblemee/peertube-plugin-sponsorblock/blo
 - FFmpeg cutting (`-c copy`) and concatenation
 - Support for web-videos, HLS, and original files
 - API routes: single and bulk processing
-- Automatic processing on import (in `remove` mode)
+- Automatic on import in `remove` mode, or manual via the Process button in any mode
 - Configurable `storage_path` setting
 
 ## Architecture
@@ -61,10 +61,12 @@ See the [User Guide](https://github.com/jblemee/peertube-plugin-sponsorblock/blo
 4. **Import hooks**
    - Captures the YouTube ID on import
    - Automatic segment retrieval
-   - Automatic queue insertion in `remove` mode
+   - Auto-queue for FFmpeg processing in `remove` mode
+   - Cleanup on video deletion
 
 5. **Processing worker**
-   - 30s polling (active only in `remove` mode)
+   - 30s polling, always processes queued jobs
+   - Manual processing via the dashboard works in any mode
    - Optimistic locking (`FOR UPDATE SKIP LOCKED`)
    - Automatic retry (3 attempts max)
 
@@ -143,11 +145,11 @@ AGPL-3.0 (for compatibility with PeerTube)
 
 ## Warnings
 
-### "Skip" mode (Phase 1)
+### Skip mode
 - Segments are still downloaded (no bandwidth savings)
 - Works only in the PeerTube web player
 
-### "Permanent removal" mode
+### Permanent removal (remove mode or manual Process)
 - Irreversible modification of video files
 - Uses `ffmpeg -c copy` (remuxing without re-encoding, fast and lossless)
 - Comment timestamps will be shifted after removal
