@@ -207,7 +207,7 @@ async function refreshTable(baseUrl, peertubeHelpers, t, tableWrap, messageEl) {
     const thead = document.createElement('thead')
     const headerRow = document.createElement('tr')
     const headers = [
-      'admin-table-uuid', 'admin-table-youtube', 'admin-table-segments',
+      'admin-table-video', 'admin-table-youtube', 'admin-table-segments',
       'admin-table-saved', 'admin-table-synced', 'admin-table-queue', 'admin-table-actions'
     ]
     for (const key of headers) {
@@ -223,13 +223,22 @@ async function refreshTable(baseUrl, peertubeHelpers, t, tableWrap, messageEl) {
     for (const mapping of mappings) {
       const tr = document.createElement('tr')
 
-      // UUID (truncated)
-      const tdUuid = document.createElement('td')
-      const uuidCode = document.createElement('code')
-      uuidCode.textContent = mapping.peertube_uuid.substring(0, 8) + '…'
-      uuidCode.title = mapping.peertube_uuid
-      tdUuid.appendChild(uuidCode)
-      tr.appendChild(tdUuid)
+      // Video name
+      const tdVideo = document.createElement('td')
+      if (mapping.video_name) {
+        const link = document.createElement('a')
+        link.href = `/w/${mapping.peertube_uuid}`
+        link.textContent = mapping.video_name
+        link.title = mapping.peertube_uuid
+        link.target = '_blank'
+        tdVideo.appendChild(link)
+      } else {
+        const uuidCode = document.createElement('code')
+        uuidCode.textContent = mapping.peertube_uuid.substring(0, 8) + '…'
+        uuidCode.title = mapping.peertube_uuid
+        tdVideo.appendChild(uuidCode)
+      }
+      tr.appendChild(tdVideo)
 
       // YouTube ID
       const tdYt = document.createElement('td')

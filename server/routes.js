@@ -511,11 +511,13 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
           m.youtube_id,
           m.created_at,
           m.last_sync,
+          v.name AS video_name,
           COALESCE(seg.segment_count, 0) AS segment_count,
           COALESCE(seg.time_saved, 0) AS time_saved,
           q.status AS queue_status,
           q.error AS queue_error
         FROM plugin_sponsorblock_mapping m
+        LEFT JOIN "video" v ON v.uuid = m.peertube_uuid
         LEFT JOIN (
           SELECT youtube_id, COUNT(*) AS segment_count, SUM(end_time - start_time) AS time_saved
           FROM plugin_sponsorblock_segments

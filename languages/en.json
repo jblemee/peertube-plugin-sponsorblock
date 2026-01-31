@@ -47,7 +47,7 @@
   "admin-btn-sync-all": "Sync All",
   "admin-btn-process-all": "Process All",
 
-  "admin-table-uuid": "Video UUID",
+  "admin-table-video": "Video",
   "admin-table-youtube": "YouTube ID",
   "admin-table-segments": "Segments",
   "admin-table-saved": "Time Saved",
