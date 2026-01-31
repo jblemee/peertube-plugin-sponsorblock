@@ -360,9 +360,10 @@ function register({ registerHook, peertubeHelpers }) {
         marker.className = 'sponsorblock-marker'
         marker.style.cssText = `
           position: absolute;
+          top: 0;
+          bottom: 0;
           left: ${startPercent}%;
           width: ${widthPercent}%;
-          height: 100%;
           background-color: rgba(0, 255, 0, 0.6);
           pointer-events: none;
           z-index: 30;
