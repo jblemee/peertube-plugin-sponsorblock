@@ -5,6 +5,73 @@
 
 const { registerRoutes } = require('./server/routes')
 const { getVideoDuration, processVideoFile, findVideoFiles } = require('./server/ffmpeg')
+const { URL } = require('url')
+
+/**
+ * Validate that an API URL is safe (not targeting internal/private networks)
+ * Rejects private IPs, loopback, link-local, and non-HTTPS schemes
+ */
+function validateApiUrl(urlString) {
+  let parsed
+  try {
+    parsed = new URL(urlString)
+  } catch {
+    throw new Error(`Invalid API URL: ${urlString}`)
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`API URL must use HTTPS, got: ${parsed.protocol}`)
+  }
+
+  const hostname = parsed.hostname
+
+  // Reject IPv6 private/loopback
+  if (hostname.startsWith('[')) {
+    const ipv6 = hostname.slice(1, -1).toLowerCase()
+    if (ipv6 === '::1' || ipv6.startsWith('fc') || ipv6.startsWith('fd') || ipv6.startsWith('fe80')) {
+      throw new Error(`API URL must not target private/internal addresses: ${hostname}`)
+    }
+  }
+
+  // Reject IPv4 private/loopback/link-local ranges
+  const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (ipv4Match) {
+    const [, a, b] = ipv4Match.map(Number)
+    if (
+      a === 127 ||                          // 127.0.0.0/8 loopback
+      a === 10 ||                           // 10.0.0.0/8 private
+      (a === 172 && b >= 16 && b <= 31) ||  // 172.16.0.0/12 private
+      (a === 192 && b === 168) ||           // 192.168.0.0/16 private
+      (a === 169 && b === 254) ||           // 169.254.0.0/16 link-local
+      a === 0                               // 0.0.0.0/8
+    ) {
+      throw new Error(`API URL must not target private/internal addresses: ${hostname}`)
+    }
+  }
+
+  // Reject localhost by name
+  if (hostname === 'localhost' || hostname.endsWith('.local')) {
+    throw new Error(`API URL must not target local addresses: ${hostname}`)
+  }
+
+  return parsed.toString()
+}
+
+/**
+ * Validate a segment from the SponsorBlock API response
+ */
+function validateSegment(segment) {
+  if (!segment || typeof segment !== 'object') return false
+  if (typeof segment.UUID !== 'string' || segment.UUID.length === 0 || segment.UUID.length > 128) return false
+  if (!Array.isArray(segment.segment) || segment.segment.length !== 2) return false
+  const [start, end] = segment.segment
+  if (typeof start !== 'number' || typeof end !== 'number') return false
+  if (start < 0 || end < 0 || start >= end) return false
+  if (!isFinite(start) || !isFinite(end)) return false
+  if (typeof segment.category !== 'string' || segment.category.length === 0 || segment.category.length > 50) return false
+  if (segment.votes !== undefined && typeof segment.votes !== 'number') return false
+  return true
+}
 
 let workerIntervalId = null
 let syncIntervalId = null
@@ -102,7 +169,7 @@ function registerSettings(registerSetting) {
     label: 'SponsorBlock API URL',
     type: 'input',
     default: 'https://sponsor.ajay.app',
-    private: false
+    private: true
   })
 
   registerSetting({
@@ -322,6 +389,7 @@ async function fetchAndCacheSegments(peertubeHelpers, settingsManager, youtubeId
 
   try {
     const apiUrl = await settingsManager.getSetting('api_url') || 'https://sponsor.ajay.app'
+    validateApiUrl(apiUrl)
     const url = `${apiUrl}/api/skipSegments?videoID=${youtubeId}`
 
     logger.debug(`Fetching SponsorBlock segments for ${youtubeId}`)
@@ -338,30 +406,42 @@ async function fetchAndCacheSegments(peertubeHelpers, settingsManager, youtubeId
 
     const segments = await response.json()
 
-    // Delete old segments
-    await database.query(`
-      DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
-    `, { bind: [youtubeId] })
-
-    // Insert new segments
-    for (const segment of segments) {
+    // Delete old and insert new segments in a transaction
+    await database.query('BEGIN')
+    try {
       await database.query(`
-        INSERT INTO plugin_sponsorblock_segments
-        (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (segment_uuid) DO NOTHING
-      `, { bind: [
-        youtubeId,
-        segment.UUID,
-        segment.segment[0],
-        segment.segment[1],
-        segment.category,
-        segment.actionType || 'skip',
-        segment.votes || 0
-      ] })
-    }
+        DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
+      `, { bind: [youtubeId] })
 
-    logger.info(`Cached ${segments.length} segments for ${youtubeId}`)
+      let cached = 0
+      for (const segment of segments) {
+        if (!validateSegment(segment)) {
+          logger.warn(`Skipping invalid segment from API: ${JSON.stringify(segment).slice(0, 200)}`)
+          continue
+        }
+        await database.query(`
+          INSERT INTO plugin_sponsorblock_segments
+          (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (segment_uuid) DO NOTHING
+        `, { bind: [
+          youtubeId,
+          segment.UUID,
+          segment.segment[0],
+          segment.segment[1],
+          segment.category,
+          segment.actionType || 'skip',
+          segment.votes || 0
+        ] })
+        cached++
+      }
+
+      await database.query('COMMIT')
+      logger.info(`Cached ${cached} segments for ${youtubeId}`)
+    } catch (txError) {
+      await database.query('ROLLBACK')
+      throw txError
+    }
 
   } catch (error) {
     logger.error(`Failed to fetch segments for ${youtubeId}`, error)
@@ -524,6 +604,7 @@ function startSyncTimer(peertubeHelpers, settingsManager) {
       )
 
       const apiUrl = await settingsManager.getSetting('api_url') || 'https://sponsor.ajay.app'
+      validateApiUrl(apiUrl)
 
       for (const mapping of (mappings || [])) {
         try {
@@ -532,26 +613,38 @@ function startSyncTimer(peertubeHelpers, settingsManager) {
           if (response.ok) {
             const apiSegments = await response.json()
 
-            await database.query(
-              'DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1',
-              { bind: [mapping.youtube_id] }
-            )
+            await database.query('BEGIN')
+            try {
+              await database.query(
+                'DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1',
+                { bind: [mapping.youtube_id] }
+              )
 
-            for (const segment of apiSegments) {
-              await database.query(`
-                INSERT INTO plugin_sponsorblock_segments
-                (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT (segment_uuid) DO NOTHING
-              `, { bind: [
-                mapping.youtube_id,
-                segment.UUID,
-                segment.segment[0],
-                segment.segment[1],
-                segment.category,
-                segment.actionType || 'skip',
-                segment.votes || 0
-              ] })
+              for (const segment of apiSegments) {
+                if (!validateSegment(segment)) {
+                  logger.warn(`Periodic sync: skipping invalid segment: ${JSON.stringify(segment).slice(0, 200)}`)
+                  continue
+                }
+                await database.query(`
+                  INSERT INTO plugin_sponsorblock_segments
+                  (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
+                  VALUES ($1, $2, $3, $4, $5, $6, $7)
+                  ON CONFLICT (segment_uuid) DO NOTHING
+                `, { bind: [
+                  mapping.youtube_id,
+                  segment.UUID,
+                  segment.segment[0],
+                  segment.segment[1],
+                  segment.category,
+                  segment.actionType || 'skip',
+                  segment.votes || 0
+                ] })
+              }
+
+              await database.query('COMMIT')
+            } catch (txError) {
+              await database.query('ROLLBACK')
+              throw txError
             }
           }
 

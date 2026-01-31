@@ -172,7 +172,12 @@ async function findVideoFiles(database, videoUuid, storagePath, logger) {
     )
 
     for (const row of (webVideoFiles || [])) {
-      const filePath = path.join(storagePath, 'web-videos', row.filename)
+      const baseDir = path.resolve(storagePath, 'web-videos')
+      const filePath = path.resolve(baseDir, row.filename)
+      if (!filePath.startsWith(baseDir + path.sep)) {
+        logger.warn(`Path traversal blocked for web-video: ${row.filename}`)
+        continue
+      }
       if (await fileExists(filePath)) {
         files.push({ type: 'web-video', path: filePath })
       }
@@ -191,7 +196,12 @@ async function findVideoFiles(database, videoUuid, storagePath, logger) {
       )
 
       for (const row of (hlsFiles || [])) {
-        const filePath = path.join(storagePath, 'streaming-playlists', 'hls', videoUuid, row.filename)
+        const baseDir = path.resolve(storagePath, 'streaming-playlists', 'hls', videoUuid)
+        const filePath = path.resolve(baseDir, row.filename)
+        if (!filePath.startsWith(baseDir + path.sep)) {
+          logger.warn(`Path traversal blocked for HLS file: ${row.filename}`)
+          continue
+        }
         if (await fileExists(filePath)) {
           files.push({ type: 'hls', path: filePath })
         }

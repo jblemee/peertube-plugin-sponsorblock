@@ -2,15 +2,73 @@
  * Server-side API routes
  */
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isValidUuid(value) {
+  return typeof value === 'string' && UUID_REGEX.test(value)
+}
+
+/**
+ * Simple in-memory token-bucket rate limiter
+ * @param {number} maxTokens - Maximum requests allowed in the window
+ * @param {number} windowMs - Time window in milliseconds
+ */
+function createRateLimiter(maxTokens, windowMs) {
+  const buckets = new Map()
+
+  // Periodically clean up expired entries to avoid memory leaks
+  setInterval(() => {
+    const now = Date.now()
+    for (const [key, bucket] of buckets) {
+      if (now - bucket.lastRefill > windowMs * 2) {
+        buckets.delete(key)
+      }
+    }
+  }, windowMs).unref()
+
+  return (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown'
+    const now = Date.now()
+
+    let bucket = buckets.get(ip)
+    if (!bucket) {
+      bucket = { tokens: maxTokens, lastRefill: now }
+      buckets.set(ip, bucket)
+    }
+
+    // Refill tokens based on elapsed time
+    const elapsed = now - bucket.lastRefill
+    const refill = Math.floor((elapsed / windowMs) * maxTokens)
+    if (refill > 0) {
+      bucket.tokens = Math.min(maxTokens, bucket.tokens + refill)
+      bucket.lastRefill = now
+    }
+
+    if (bucket.tokens <= 0) {
+      return res.status(429).json({ error: 'Too many requests, please try again later' })
+    }
+
+    bucket.tokens--
+    next()
+  }
+}
+
 async function registerRoutes({ router, peertubeHelpers }) {
   const logger = peertubeHelpers.logger
+
+  // Rate limiter: 60 requests per minute per IP for public endpoints
+  const segmentsRateLimiter = createRateLimiter(60, 60 * 1000)
 
   /**
    * GET /segments/:videoUuid
    * Returns SponsorBlock segments for a given video
    */
-  router.get('/segments/:videoUuid', async (req, res) => {
+  router.get('/segments/:videoUuid', segmentsRateLimiter, async (req, res) => {
     const videoUuid = req.params.videoUuid
+
+    if (!isValidUuid(videoUuid)) {
+      return res.status(400).json({ error: 'Invalid video UUID format' })
+    }
 
     try {
       const database = peertubeHelpers.database
@@ -66,7 +124,17 @@ async function registerRoutes({ router, peertubeHelpers }) {
   router.get('/mapping/:videoUuid', async (req, res) => {
     const videoUuid = req.params.videoUuid
 
+    if (!isValidUuid(videoUuid)) {
+      return res.status(400).json({ error: 'Invalid video UUID format' })
+    }
+
     try {
+      // Auth check: admin/moderator only
+      const user = await peertubeHelpers.user.getAuthUser(res)
+      if (!user || (user.role !== 0 && user.role !== 1)) {
+        return res.status(403).json({ error: 'Admin or moderator access required' })
+      }
+
       const database = peertubeHelpers.database
 
       const [mappings] = await database.query(`
@@ -97,6 +165,10 @@ async function registerRoutes({ router, peertubeHelpers }) {
    */
   router.post('/mapping/:videoUuid', async (req, res) => {
     const videoUuid = req.params.videoUuid
+
+    if (!isValidUuid(videoUuid)) {
+      return res.status(400).json({ error: 'Invalid video UUID format' })
+    }
 
     try {
       // Auth check: admin/moderator only
@@ -220,6 +292,10 @@ async function registerRoutes({ router, peertubeHelpers }) {
    */
   router.post('/process/:videoUuid', async (req, res) => {
     const videoUuid = req.params.videoUuid
+
+    if (!isValidUuid(videoUuid)) {
+      return res.status(400).json({ error: 'Invalid video UUID format' })
+    }
 
     try {
       // Auth check: admin/moderator only
@@ -438,6 +514,10 @@ async function registerRoutes({ router, peertubeHelpers }) {
   router.delete('/mapping/:videoUuid', async (req, res) => {
     const videoUuid = req.params.videoUuid
 
+    if (!isValidUuid(videoUuid)) {
+      return res.status(400).json({ error: 'Invalid video UUID format' })
+    }
+
     try {
       const user = await peertubeHelpers.user.getAuthUser(res)
       if (!user || user.role !== 0) {
@@ -544,7 +624,17 @@ async function registerRoutes({ router, peertubeHelpers }) {
   router.post('/sync/:videoUuid', async (req, res) => {
     const videoUuid = req.params.videoUuid
 
+    if (!isValidUuid(videoUuid)) {
+      return res.status(400).json({ error: 'Invalid video UUID format' })
+    }
+
     try {
+      // Auth check: admin/moderator only
+      const user = await peertubeHelpers.user.getAuthUser(res)
+      if (!user || (user.role !== 0 && user.role !== 1)) {
+        return res.status(403).json({ error: 'Admin or moderator access required' })
+      }
+
       const database = peertubeHelpers.database
 
       // Get YouTube ID
@@ -573,29 +663,40 @@ async function registerRoutes({ router, peertubeHelpers }) {
 
       const segments = await response.json()
 
-      // Delete old segments
-      await database.query(`
-        DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
-      `, { bind: [youtubeId] })
-
-      // Insert new segments
+      // Delete old and insert new segments in a transaction
+      await database.query('BEGIN')
       let insertedCount = 0
-      for (const segment of segments) {
+      try {
         await database.query(`
-          INSERT INTO plugin_sponsorblock_segments
-          (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (segment_uuid) DO NOTHING
-        `, { bind: [
-          youtubeId,
-          segment.UUID,
-          segment.segment[0],
-          segment.segment[1],
-          segment.category,
-          segment.actionType || 'skip',
-          segment.votes || 0
-        ] })
-        insertedCount++
+          DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
+        `, { bind: [youtubeId] })
+
+        for (const segment of segments) {
+          if (!validateSegment(segment)) {
+            logger.warn(`Skipping invalid segment from API: ${JSON.stringify(segment).slice(0, 200)}`)
+            continue
+          }
+          await database.query(`
+            INSERT INTO plugin_sponsorblock_segments
+            (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (segment_uuid) DO NOTHING
+          `, { bind: [
+            youtubeId,
+            segment.UUID,
+            segment.segment[0],
+            segment.segment[1],
+            segment.category,
+            segment.actionType || 'skip',
+            segment.votes || 0
+          ] })
+          insertedCount++
+        }
+
+        await database.query('COMMIT')
+      } catch (txError) {
+        await database.query('ROLLBACK')
+        throw txError
       }
 
       // Update last_sync timestamp
@@ -654,6 +755,23 @@ function extractYoutubeId(input) {
 }
 
 /**
+ * Validate a segment from the SponsorBlock API response
+ * Returns true if the segment has valid shape, false otherwise
+ */
+function validateSegment(segment) {
+  if (!segment || typeof segment !== 'object') return false
+  if (typeof segment.UUID !== 'string' || segment.UUID.length === 0 || segment.UUID.length > 128) return false
+  if (!Array.isArray(segment.segment) || segment.segment.length !== 2) return false
+  const [start, end] = segment.segment
+  if (typeof start !== 'number' || typeof end !== 'number') return false
+  if (start < 0 || end < 0 || start >= end) return false
+  if (!isFinite(start) || !isFinite(end)) return false
+  if (typeof segment.category !== 'string' || segment.category.length === 0 || segment.category.length > 50) return false
+  if (segment.votes !== undefined && typeof segment.votes !== 'number') return false
+  return true
+}
+
+/**
  * Fetch segments from SponsorBlock API and cache them in database
  */
 async function fetchAndCacheSegments(database, youtubeId, logger) {
@@ -671,39 +789,49 @@ async function fetchAndCacheSegments(database, youtubeId, logger) {
 
   const apiSegments = await response.json()
 
-  // Delete old segments
-  await database.query(`
-    DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
-  `, { bind: [youtubeId] })
-
-  // Insert new segments
-  const segments = []
-  for (const segment of apiSegments) {
+  // Delete old and insert new segments in a transaction
+  await database.query('BEGIN')
+  try {
     await database.query(`
-      INSERT INTO plugin_sponsorblock_segments
-      (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (segment_uuid) DO NOTHING
-    `, { bind: [
-      youtubeId,
-      segment.UUID,
-      segment.segment[0],
-      segment.segment[1],
-      segment.category,
-      segment.actionType || 'skip',
-      segment.votes || 0
-    ] })
-    segments.push({
-      segment_uuid: segment.UUID,
-      start_time: segment.segment[0],
-      end_time: segment.segment[1],
-      category: segment.category,
-      action_type: segment.actionType || 'skip',
-      votes: segment.votes || 0
-    })
-  }
+      DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
+    `, { bind: [youtubeId] })
 
-  return segments
+    const segments = []
+    for (const segment of apiSegments) {
+      if (!validateSegment(segment)) {
+        logger.warn(`Skipping invalid segment from API: ${JSON.stringify(segment).slice(0, 200)}`)
+        continue
+      }
+      await database.query(`
+        INSERT INTO plugin_sponsorblock_segments
+        (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (segment_uuid) DO NOTHING
+      `, { bind: [
+        youtubeId,
+        segment.UUID,
+        segment.segment[0],
+        segment.segment[1],
+        segment.category,
+        segment.actionType || 'skip',
+        segment.votes || 0
+      ] })
+      segments.push({
+        segment_uuid: segment.UUID,
+        start_time: segment.segment[0],
+        end_time: segment.segment[1],
+        category: segment.category,
+        action_type: segment.actionType || 'skip',
+        votes: segment.votes || 0
+      })
+    }
+
+    await database.query('COMMIT')
+    return segments
+  } catch (txError) {
+    await database.query('ROLLBACK')
+    throw txError
+  }
 }
 
 module.exports = { registerRoutes }

@@ -210,7 +210,11 @@ function register({ registerHook, peertubeHelpers }) {
     const currentDiv = document.createElement('div')
     currentDiv.className = 'sponsorblock-widget-current'
     if (currentMapping) {
-      currentDiv.innerHTML = `${currentLabel} <code>${currentMapping.youtube_id}</code>`
+      currentDiv.textContent = ''
+      currentDiv.appendChild(document.createTextNode(currentLabel + ' '))
+      const code = document.createElement('code')
+      code.textContent = currentMapping.youtube_id
+      currentDiv.appendChild(code)
     }
     content.appendChild(currentDiv)
 
@@ -299,7 +303,11 @@ function register({ registerHook, peertubeHelpers }) {
         }
 
         // Update current mapping display
-        currentDiv.innerHTML = `${currentLabel} <code>${data.youtubeId}</code>`
+        currentDiv.textContent = ''
+        currentDiv.appendChild(document.createTextNode(currentLabel + ' '))
+        const codeEl = document.createElement('code')
+        codeEl.textContent = data.youtubeId
+        currentDiv.appendChild(codeEl)
         input.value = ''
 
       } catch (e) {
