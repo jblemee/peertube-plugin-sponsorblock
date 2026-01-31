@@ -7,6 +7,7 @@ Ce document explique comment développer et tester le plugin PeerTube SponsorBlo
 - Node.js >= 16
 - Une instance PeerTube de développement (>= 6.0.0)
 - PostgreSQL (utilisé par PeerTube)
+- FFmpeg et ffprobe (requis pour le mode suppression permanente)
 
 ## Installation pour le développement
 
@@ -56,13 +57,14 @@ sudo systemctl restart peertube
 
 ```
 peertube-plugin-sponsorblock/
-├── main.js                 # Point d'entrée serveur
+├── main.js                 # Point d'entrée serveur (settings, hooks, worker)
 ├── package.json            # Métadonnées du plugin
 ├── client/                 # Code client (navigateur)
 │   ├── common.js           # Code commun
 │   └── video-watch.js      # Lecteur vidéo (skip logic)
 ├── server/                 # Code serveur
-│   └── routes.js           # API REST
+│   ├── routes.js           # API REST (segments, mapping, scan, sync, process)
+│   └── ffmpeg.js           # Wrapper FFmpeg/ffprobe (découpe, concat, file discovery)
 ├── assets/                 # Ressources statiques
 │   ├── style.css           # Styles CSS
 │   └── images/             # Images
@@ -80,8 +82,13 @@ peertube-plugin-sponsorblock/
 Import YouTube → Hook post-import → Extraction YouTube ID → API SponsorBlock
                                                            ↓
                                                     Cache en DB
-                                                           ↓
-Client (lecteur vidéo) → API /segments/:uuid → Segments → Skip automatique
+                                                     ↓            ↓
+                              (mode remove)     (mode skip)
+                              Queue processing  Client skip
+                                    ↓                  ↓
+                              Worker (30s)    API /segments/:uuid → Skip automatique
+                                    ↓
+                              FFmpeg cut + concat → Remplacement fichier
 ```
 
 ### Tables de base de données
@@ -122,15 +129,35 @@ SELECT * FROM plugin_sponsorblock_segments;
 ### 4. Tester l'API
 
 ```bash
+BASE=http://localhost:9000/plugins/sponsorblock/router
+
 # Récupérer les segments d'une vidéo
-curl http://localhost:9000/plugins/sponsorblock/router/segments/{VIDEO_UUID}
+curl $BASE/segments/{VIDEO_UUID}
 
 # Récupérer le mapping YouTube
-curl http://localhost:9000/plugins/sponsorblock/router/mapping/{VIDEO_UUID}
+curl $BASE/mapping/{VIDEO_UUID}
 
 # Forcer une synchronisation
-curl -X POST http://localhost:9000/plugins/sponsorblock/router/sync/{VIDEO_UUID}
+curl -X POST $BASE/sync/{VIDEO_UUID}
+
+# Lancer le traitement FFmpeg d'une vidéo (admin auth requis)
+curl -X POST $BASE/process/{VIDEO_UUID} -H "Authorization: Bearer TOKEN"
+
+# Lancer le traitement de toutes les vidéos non traitées (admin auth requis)
+curl -X POST $BASE/process-all -H "Authorization: Bearer TOKEN"
 ```
+
+### 5. Tester le mode suppression permanente
+
+1. Configurer le mode `remove` dans les paramètres du plugin
+2. Vérifier que `storage_path` pointe vers le bon répertoire
+3. Vérifier FFmpeg : `ffmpeg -version && ffprobe -version`
+4. Importer une vidéo YouTube avec des segments connus
+5. Vérifier la file d'attente en DB :
+   ```bash
+   sudo -u postgres psql peertube_prod -c "SELECT id, video_uuid, status, priority FROM plugin_sponsorblock_processing_queue;"
+   ```
+6. Le worker traite les jobs toutes les 30s — vérifier les logs pour le suivi
 
 ## Développement
 

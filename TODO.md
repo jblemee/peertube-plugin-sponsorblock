@@ -64,29 +64,34 @@
 - [ ] Prévisualisation avant skip (bouton "skip")
 - [ ] Historique des segments sautés
 
-## Phase 3 : Suppression permanente (Optionnel)
+## Phase 3 : Suppression permanente
 
 ### Analyse de faisabilité
-- [ ] Vérifier l'accès aux fichiers vidéo depuis un plugin
-- [ ] Tester FFmpeg depuis le contexte du plugin
-- [ ] Valider les permissions nécessaires
+- [x] Vérifier l'accès aux fichiers vidéo depuis un plugin
+- [x] Tester FFmpeg depuis le contexte du plugin
+- [x] Valider les permissions nécessaires
 - [ ] Mesurer l'impact performance sur le serveur
 
 ### Implémentation
-- [ ] Worker de traitement de la queue
-- [ ] Intégration FFmpeg (découpe et concat)
-- [ ] Gestion des multiples résolutions
-- [ ] Support des playlists HLS
+- [x] Worker de traitement de la queue (`main.js` — polling 30s)
+- [x] Intégration FFmpeg découpe et concat (`server/ffmpeg.js` — `-c copy`)
+- [x] Gestion des multiples résolutions (web-videos + HLS)
+- [x] Support des playlists HLS
+- [x] File d'attente avec priorités (`plugin_sponsorblock_processing_queue`)
+- [x] Retry automatique (3 tentatives max, `FOR UPDATE SKIP LOCKED`)
+- [x] Routes API : `POST /process/:videoUuid` et `POST /process-all`
+- [x] Paramètre `storage_path` configurable
+- [x] Traduction des messages (EN, FR)
 - [ ] Système de backup automatique
 - [ ] Rollback en cas d'erreur
 - [ ] Gestion du stockage S3
 
 ### Sécurité et stabilité
-- [ ] Transactions atomiques
-- [ ] Vérification de l'intégrité des vidéos
+- [x] Verrouillage optimiste des jobs (pas de double traitement)
+- [x] Validation du fichier de sortie (non vide)
+- [x] Nettoyage du répertoire temporaire (try/finally)
+- [ ] Vérification de l'intégrité des vidéos (checksum)
 - [ ] Limite de charge CPU
-- [ ] File d'attente avec priorités
-- [ ] Retry avec backoff exponentiel
 - [ ] Monitoring et alertes
 
 ## Bugs connus

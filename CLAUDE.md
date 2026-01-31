@@ -1,0 +1,1 @@
+Follow AGENT.md strictly.

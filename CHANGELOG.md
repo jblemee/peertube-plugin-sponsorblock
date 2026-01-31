@@ -7,11 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **FFmpeg segment removal** (`server/ffmpeg.js`): hard removal of sponsor segments from video files using `ffmpeg -c copy` (no re-encoding)
+  - `getVideoDuration()`: ffprobe-based duration detection
+  - `computeKeepSegments()`: segment merging, inversion, and validation
+  - `processVideoFile()`: cut, concatenate, and replace original file
+  - `findVideoFiles()`: discover local web-videos, HLS, and original files via PeerTube DB
+- **Background worker** in `main.js`: 30s polling, processes queue when mode is `remove`, supports retries (3 max) with `FOR UPDATE SKIP LOCKED`
+- **`POST /process/:videoUuid`** route: queue a single video for FFmpeg processing (priority 5, admin auth)
+- **`POST /process-all`** route: bulk-queue all mapped videos not yet processed (priority 1, admin auth)
+- **`storage_path` setting**: configurable PeerTube storage directory (default `/var/www/peertube/storage`)
+- **8 new translation keys** in `en.json` and `fr.json` for processing messages
+- Proper `unregister()` cleanup (clears worker interval)
+
 ### Planned
-- Permanent segment removal (FFmpeg processing)
 - Admin interface for managing mappings
 - Periodic sync with SponsorBlock
-- Migration tool for existing videos
 - Statistics and metrics
 
 ## [0.1.0] - 2026-01-31

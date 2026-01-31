@@ -8,9 +8,9 @@ Permettre aux instances PeerTube de bénéficier de la base de données crowdsou
 
 ## 📋 Statut du projet
 
-**🚧 En phase de recherche et développement**
+**🚧 En développement actif**
 
-Ce projet est actuellement en phase de conception. Consultez les documents de recherche :
+Phase 1 (skip client) et Phase 3 (suppression permanente) sont implémentées. Consultez les documents de recherche :
 - [`RESEARCH.md`](./RESEARCH.md) - Recherche sur l'état de l'art et les capacités PeerTube
 - [`TECHNICAL_ANALYSIS.md`](./TECHNICAL_ANALYSIS.md) - Analyse technique de la suppression permanente des segments
 
@@ -30,10 +30,14 @@ Ce projet est actuellement en phase de conception. Consultez les documents de re
 - Statistiques et métriques
 - Indicateurs visuels sur la timeline
 
-### Phase 3 : Suppression permanente (optionnel)
-- Modification des fichiers vidéo pour supprimer définitivement les segments
-- Traitement FFmpeg en arrière-plan
-- Économie de stockage et bande passante
+### Phase 3 : Suppression permanente
+- ✅ Worker de traitement en arrière-plan (polling 30s)
+- ✅ File d'attente avec priorités et retries
+- ✅ Découpe FFmpeg (`-c copy`) et concaténation
+- ✅ Support web-videos, HLS et fichiers originaux
+- ✅ Routes API : traitement unitaire et en masse
+- ✅ Suppression automatique à l'import (mode `remove`)
+- ✅ Paramètre `storage_path` configurable
 
 ## 🏗️ Architecture
 
@@ -49,11 +53,22 @@ Ce projet est actuellement en phase de conception. Consultez les documents de re
    plugin_sponsorblock_segments (youtube_id, start_time, end_time, category)
    ```
 
-3. **Hooks d'import**
+3. **File d'attente de traitement FFmpeg**
+   ```sql
+   plugin_sponsorblock_processing_queue (video_uuid, segments, status, priority)
+   ```
+
+4. **Hooks d'import**
    - Capture l'ID YouTube lors de l'import
    - Récupération automatique des segments
+   - Mise en file d'attente automatique en mode `remove`
 
-4. **Intégration lecteur vidéo**
+5. **Worker de traitement**
+   - Polling toutes les 30s (actif uniquement en mode `remove`)
+   - Verrouillage optimiste (`FOR UPDATE SKIP LOCKED`)
+   - Retry automatique (3 tentatives max)
+
+6. **Intégration lecteur vidéo**
    - Skip automatique lors de la lecture
    - Notifications visuelles
 
@@ -85,7 +100,7 @@ Le système de plugins PeerTube supporte :
 
 - **PeerTube** : Plateforme vidéo décentralisée
 - **SponsorBlock API** : https://sponsor.ajay.app/api/
-- **FFmpeg** : Pour la suppression permanente (phase 3)
+- **FFmpeg/ffprobe** : Pour la suppression permanente des segments
 - **PostgreSQL** : Base de données PeerTube
 - **Node.js** : Runtime du plugin
 
@@ -117,12 +132,13 @@ Ce projet est en phase de recherche. Les contributions sont bienvenues :
 - Les segments sont toujours téléchargés (pas d'économie de bande passante)
 - Fonctionne uniquement dans le lecteur web PeerTube
 
-### Mode "Suppression permanente" (Phase 3)
+### Mode "Suppression permanente"
 - ⚠️ Modification irréversible des fichiers vidéo
-- Charge CPU importante (FFmpeg)
-- Risques de corruption en cas d'erreur
-- Timestamps de commentaires décalés
+- Utilise `ffmpeg -c copy` (remuxage sans réencodage, rapide et sans perte de qualité)
+- Timestamps de commentaires décalés après suppression
+- Retry automatique (3 tentatives) en cas d'erreur
 - **Recommandé uniquement avec backups automatiques**
+- Nécessite `ffmpeg` et `ffprobe` dans le `PATH`
 
 ---
 

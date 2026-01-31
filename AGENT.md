@@ -18,7 +18,4 @@ The research, architecture design, and documentation were created through an int
 
 - All code files (comments, variable names, log messages) must be written in English.
 - Translation files (`languages/*.json`) contain localized strings and are the only exception.
-
-## Note
-
-This file documents AI assistance in the project. Git commits do not mention Claude to maintain professional commit history.
+- Never add `Co-Authored-By` or any AI attribution in git commits.
