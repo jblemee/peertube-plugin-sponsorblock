@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-01-31
+
+### Fixed
+- **HLS regeneration crash**: FFmpeg produces `output.m4s` with `-hls_segment_type fmp4`, not `output.mp4`; `copyFile` failed with ENOENT
+- **Double-cutting on retry**: when HLS regeneration failed after a successful cut, retries re-cut an already-shortened file; worker now tracks `cut_completed` flag and skips cuts on retry
+- **Processed video check was fragile**: replaced indirect queue `status = 'done'` check with explicit `segments_removed` boolean on the mapping table
+
+### Changed
+- Worker split into two phases: phase 1 (FFmpeg cuts, skipped if `cut_completed`), phase 2 (HLS metadata regeneration, always retried)
+- Segments endpoint checks `segments_removed` on the mapping instead of querying the processing queue
+- Dashboard info note explains that permanent removal cuts all segment types regardless of category settings
+- Documentation clarifies: category checkboxes control client-side skip only; FFmpeg removal cuts all segment types
+
 ## [0.4.0] - 2026-01-31
 
 ### Fixed
@@ -59,5 +72,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Express routes for API endpoints
 - Settings management system
 
+[0.5.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.1.0...v0.4.0
 [0.1.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/releases/tag/v0.1.0
