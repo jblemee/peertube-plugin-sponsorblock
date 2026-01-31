@@ -44,8 +44,11 @@
   "admin-stats-queue": "Queue Pending",
 
   "admin-btn-scan": "Scan Imports",
+  "admin-btn-scan-desc": "Scan the video import table for YouTube URLs and create mappings for new videos",
   "admin-btn-sync-all": "Sync All",
+  "admin-btn-sync-all-desc": "Re-fetch SponsorBlock segments for all mapped videos",
   "admin-btn-process-all": "Process All",
+  "admin-btn-process-all-desc": "Queue all mapped videos for permanent segment removal (requires FFmpeg)",
 
   "admin-table-video": "Video",
   "admin-table-youtube": "YouTube ID",

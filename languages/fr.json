@@ -44,8 +44,11 @@
   "admin-stats-queue": "File d'attente",
 
   "admin-btn-scan": "Scanner les imports",
+  "admin-btn-scan-desc": "Parcourir la table des imports vidéo pour trouver les URLs YouTube et créer les liaisons manquantes",
   "admin-btn-sync-all": "Tout synchroniser",
+  "admin-btn-sync-all-desc": "Re-télécharger les segments SponsorBlock pour toutes les vidéos liées",
   "admin-btn-process-all": "Tout traiter",
+  "admin-btn-process-all-desc": "Mettre toutes les vidéos liées en file de suppression permanente des segments (nécessite FFmpeg)",
 
   "admin-table-video": "Vidéo",
   "admin-table-youtube": "ID YouTube",

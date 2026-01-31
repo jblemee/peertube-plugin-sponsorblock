@@ -81,8 +81,11 @@ async function initDashboard(peertubeHelpers) {
   root.appendChild(actionsRow)
 
   const scanBtn = await createButton(t, 'admin-btn-scan', 'sponsorblock-admin-btn')
+  scanBtn.title = await t('admin-btn-scan-desc') || 'Scan the video import table for YouTube URLs and create mappings for new videos'
   const syncAllBtn = await createButton(t, 'admin-btn-sync-all', 'sponsorblock-admin-btn sponsorblock-admin-btn--secondary')
+  syncAllBtn.title = await t('admin-btn-sync-all-desc') || 'Re-fetch SponsorBlock segments for all mapped videos'
   const processAllBtn = await createButton(t, 'admin-btn-process-all', 'sponsorblock-admin-btn sponsorblock-admin-btn--secondary')
+  processAllBtn.title = await t('admin-btn-process-all-desc') || 'Queue all mapped videos for permanent segment removal (requires FFmpeg)'
 
   actionsRow.appendChild(scanBtn)
   actionsRow.appendChild(syncAllBtn)
