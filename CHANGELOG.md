@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-01-31
+
+### Changed
+- **Native PeerTube theme integration**: replaced custom button styles with native PeerTube classes (`peertube-button`, `primary-button`, `secondary-button`, `danger-button`)
+- **CSS variables for colors**: replaced all hardcoded colors with PeerTube theme CSS variables (`--primary`, `--fg`, `--green`, `--red`, `--input-bg`, `--bg-secondary-*`) so the plugin follows the instance theme in both light and dark modes
+
 ## [0.5.0] - 2026-01-31
 
 ### Fixed
@@ -72,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Express routes for API endpoints
 - Settings management system
 
+[1.0.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.5.0...v1.0.0
 [0.5.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.1.0...v0.4.0
 [0.1.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/releases/tag/v0.1.0
