@@ -4,78 +4,76 @@
  */
 
 function register({ registerHook, peertubeHelpers }) {
-  console.log('[SponsorBlock] Video watch script loaded')
+  console.log('[SponsorBlock] Video watch script loaded');
 
-  let segments = []
-  let skippedSegments = new Set()
-  let currentVideo = null
-  let skippingActive = false
-  let playerRef = null
+  let segments = [];
+  const skippedSegments = new Set();
+  let skippingActive = false;
+  let playerRef = null;
 
   // Hook: When video is loaded
   registerHook({
     target: 'action:video-watch.video.loaded',
     handler: async ({ video, videojs }) => {
-      console.log('[SponsorBlock] Video loaded:', video.uuid)
+      console.log('[SponsorBlock] Video loaded:', video.uuid);
 
-      currentVideo = video
-      segments = []
-      skippedSegments.clear()
-      skippingActive = false
-      playerRef = videojs
+      segments = [];
+      skippedSegments.clear();
+      skippingActive = false;
+      playerRef = videojs;
 
       try {
         // Fetch segments for this video
-        segments = await fetchSegments(video.uuid)
+        segments = await fetchSegments(video.uuid);
 
         if (segments.length > 0) {
-          console.log(`[SponsorBlock] Found ${segments.length} segments to skip`)
-          setupSegmentSkipping(videojs)
+          console.log(`[SponsorBlock] Found ${segments.length} segments to skip`);
+          setupSegmentSkipping(videojs);
         } else {
-          console.log('[SponsorBlock] No segments found for this video')
+          console.log('[SponsorBlock] No segments found for this video');
         }
       } catch (error) {
-        console.error('[SponsorBlock] Failed to fetch segments:', error)
+        console.error('[SponsorBlock] Failed to fetch segments:', error);
       }
 
       // Show mapping widget for admins/moderators
       try {
-        const user = await peertubeHelpers.getUser()
+        const user = await peertubeHelpers.getUser();
         if (user && (user.role === 0 || user.role === 1)) {
-          renderMappingWidget(video.uuid)
+          renderMappingWidget(video.uuid);
         }
       } catch (e) {
         // Not logged in or can't get user — skip widget
       }
     }
-  })
+  });
 
   /**
    * Fetch segments from server
    */
   async function fetchSegments(videoUuid) {
     try {
-      const baseUrl = window.location.origin
+      const baseUrl = window.location.origin;
       const response = await fetch(
         `${baseUrl}/plugins/sponsorblock/router/segments/${videoUuid}`,
         {
           method: 'GET',
           headers: peertubeHelpers.getAuthHeader()
         }
-      )
+      );
 
       if (!response.ok) {
         if (response.status === 404) {
-          return [] // No segments found
+          return []; // No segments found
         }
-        throw new Error(`Failed to fetch segments: ${response.status}`)
+        throw new Error(`Failed to fetch segments: ${response.status}`);
       }
 
-      const data = await response.json()
-      return data.segments || []
+      const data = await response.json();
+      return data.segments || [];
     } catch (error) {
-      console.error('[SponsorBlock] Error fetching segments:', error)
-      return []
+      console.error('[SponsorBlock] Error fetching segments:', error);
+      return [];
     }
   }
 
@@ -83,55 +81,55 @@ function register({ registerHook, peertubeHelpers }) {
    * Setup segment skipping on the video player
    */
   function setupSegmentSkipping(player) {
-    if (!player) return
+    if (!player) return;
 
     // Avoid doubling listeners if skipping was already set up
-    if (skippingActive) return
-    skippingActive = true
+    if (skippingActive) return;
+    skippingActive = true;
 
     // Access the native HTML5 <video> element (PeerTube v8 wraps Video.js)
     const videoEl = player.el
       ? player.el().querySelector('video')
-      : document.querySelector('.vjs-tech')
+      : document.querySelector('.vjs-tech');
 
     if (!videoEl) {
-      console.error('[SponsorBlock] Could not find video element')
-      return
+      console.error('[SponsorBlock] Could not find video element');
+      return;
     }
 
-    let lastCheckTime = 0
+    let lastCheckTime = 0;
 
     videoEl.addEventListener('timeupdate', () => {
-      const currentTime = videoEl.currentTime
+      const currentTime = videoEl.currentTime;
 
       // Throttle checks to avoid performance issues
       if (Math.abs(currentTime - lastCheckTime) < 0.5) {
-        return
+        return;
       }
-      lastCheckTime = currentTime
+      lastCheckTime = currentTime;
 
       // Check if we're in a segment to skip
       for (const segment of segments) {
-        const segmentKey = `${segment.start_time}-${segment.end_time}`
+        const segmentKey = `${segment.start_time}-${segment.end_time}`;
 
         if (currentTime >= segment.start_time && currentTime < segment.end_time) {
           // Skip this segment if not already skipped
           if (!skippedSegments.has(segmentKey)) {
-            console.log(`[SponsorBlock] Skipping ${segment.category} segment: ${segment.start_time}s - ${segment.end_time}s`)
+            console.log(`[SponsorBlock] Skipping ${segment.category} segment: ${segment.start_time}s - ${segment.end_time}s`);
 
-            videoEl.currentTime = segment.end_time
-            skippedSegments.add(segmentKey)
+            videoEl.currentTime = segment.end_time;
+            skippedSegments.add(segmentKey);
 
             // Show notification
-            showSkipNotification(segment)
+            showSkipNotification(segment);
           }
-          break
+          break;
         }
       }
-    })
+    });
 
     // Add visual indicators to the progress bar
-    addProgressBarMarkers(player)
+    addProgressBarMarkers(player);
   }
 
   /**
@@ -147,16 +145,16 @@ function register({ registerHook, peertubeHelpers }) {
       preview: 'Preview',
       music_offtopic: 'Off-topic music',
       filler: 'Filler'
-    }
+    };
 
-    const label = categoryLabels[segment.category] || segment.category
-    const duration = (segment.end_time - segment.start_time).toFixed(1)
+    const label = categoryLabels[segment.category] || segment.category;
+    const duration = (segment.end_time - segment.start_time).toFixed(1);
 
     peertubeHelpers.notifier.info(
       `Skipped ${label} (${duration}s)`,
       'SponsorBlock',
       3000
-    )
+    );
   }
 
   /**
@@ -164,102 +162,102 @@ function register({ registerHook, peertubeHelpers }) {
    */
   async function renderMappingWidget(videoUuid) {
     // Remove any existing widget
-    const existing = document.querySelector('.sponsorblock-widget')
-    if (existing) existing.remove()
+    const existing = document.querySelector('.sponsorblock-widget');
+    if (existing) existing.remove();
 
     // Find the container below the player
-    const container = document.querySelector('.video-info')
-    if (!container) return
+    const container = document.querySelector('.video-info');
+    if (!container) return;
 
-    const widget = document.createElement('div')
-    widget.className = 'sponsorblock-widget'
+    const widget = document.createElement('div');
+    widget.className = 'sponsorblock-widget';
 
     // Check for existing mapping
-    let currentMapping = null
+    let currentMapping = null;
     try {
-      const baseUrl = window.location.origin
+      const baseUrl = window.location.origin;
       const resp = await fetch(
         `${baseUrl}/plugins/sponsorblock/router/mapping/${videoUuid}`,
         { headers: peertubeHelpers.getAuthHeader() }
-      )
+      );
       if (resp.ok) {
-        currentMapping = await resp.json()
+        currentMapping = await resp.json();
       }
     } catch (e) {
       // No mapping yet
     }
 
-    const translate = (key) => peertubeHelpers.translate(key)
+    const translate = (key) => peertubeHelpers.translate(key);
 
-    const label = await translate('mapping-label') || 'SponsorBlock'
-    const placeholder = await translate('mapping-placeholder') || 'YouTube ID or URL'
-    const linkBtn = await translate('mapping-link-btn') || 'Link'
-    const currentLabel = await translate('mapping-current') || 'Linked to:'
+    const label = await translate('mapping-label') || 'SponsorBlock';
+    const placeholder = await translate('mapping-placeholder') || 'YouTube ID or URL';
+    const linkBtn = await translate('mapping-link-btn') || 'Link';
+    const currentLabel = await translate('mapping-current') || 'Linked to:';
 
     // Build toggle label
-    const toggle = document.createElement('span')
-    toggle.className = 'sponsorblock-widget-toggle'
-    toggle.textContent = `▶ ${label}`
-    widget.appendChild(toggle)
+    const toggle = document.createElement('span');
+    toggle.className = 'sponsorblock-widget-toggle';
+    toggle.textContent = `▶ ${label}`;
+    widget.appendChild(toggle);
 
     // Collapsible content
-    const content = document.createElement('div')
-    content.style.display = 'none'
+    const content = document.createElement('div');
+    content.style.display = 'none';
 
     // Show current mapping if any
-    const currentDiv = document.createElement('div')
-    currentDiv.className = 'sponsorblock-widget-current'
+    const currentDiv = document.createElement('div');
+    currentDiv.className = 'sponsorblock-widget-current';
     if (currentMapping) {
-      currentDiv.textContent = ''
-      currentDiv.appendChild(document.createTextNode(currentLabel + ' '))
-      const code = document.createElement('code')
-      code.textContent = currentMapping.youtube_id
-      currentDiv.appendChild(code)
+      currentDiv.textContent = '';
+      currentDiv.appendChild(document.createTextNode(currentLabel + ' '));
+      const code = document.createElement('code');
+      code.textContent = currentMapping.youtube_id;
+      currentDiv.appendChild(code);
     }
-    content.appendChild(currentDiv)
+    content.appendChild(currentDiv);
 
     // Form row
-    const form = document.createElement('div')
-    form.className = 'sponsorblock-widget-form'
+    const form = document.createElement('div');
+    form.className = 'sponsorblock-widget-form';
 
-    const input = document.createElement('input')
-    input.type = 'text'
-    input.className = 'sponsorblock-widget-input'
-    input.placeholder = placeholder
-    form.appendChild(input)
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'sponsorblock-widget-input';
+    input.placeholder = placeholder;
+    form.appendChild(input);
 
-    const btn = document.createElement('button')
-    btn.className = 'sponsorblock-widget-btn'
-    btn.textContent = linkBtn
-    form.appendChild(btn)
+    const btn = document.createElement('button');
+    btn.className = 'sponsorblock-widget-btn';
+    btn.textContent = linkBtn;
+    form.appendChild(btn);
 
-    content.appendChild(form)
+    content.appendChild(form);
 
     // Status message
-    const status = document.createElement('div')
-    status.className = 'sponsorblock-widget-status'
-    content.appendChild(status)
+    const status = document.createElement('div');
+    status.className = 'sponsorblock-widget-status';
+    content.appendChild(status);
 
-    widget.appendChild(content)
+    widget.appendChild(content);
 
     // Toggle open/close
     toggle.addEventListener('click', () => {
-      const open = content.style.display !== 'none'
-      content.style.display = open ? 'none' : 'block'
-      toggle.textContent = `${open ? '▶' : '▼'} ${label}`
-    })
+      const open = content.style.display !== 'none';
+      content.style.display = open ? 'none' : 'block';
+      toggle.textContent = `${open ? '▶' : '▼'} ${label}`;
+    });
 
     // Submit mapping
     btn.addEventListener('click', async () => {
-      const value = input.value.trim()
-      if (!value) return
+      const value = input.value.trim();
+      if (!value) return;
 
-      btn.disabled = true
-      status.textContent = ''
-      status.className = 'sponsorblock-widget-status'
+      btn.disabled = true;
+      status.textContent = '';
+      status.className = 'sponsorblock-widget-status';
 
       try {
-        const baseUrl = window.location.origin
+        const baseUrl = window.location.origin;
         const resp = await fetch(
           `${baseUrl}/plugins/sponsorblock/router/mapping/${videoUuid}`,
           {
@@ -270,103 +268,103 @@ function register({ registerHook, peertubeHelpers }) {
             },
             body: JSON.stringify({ youtubeId: value })
           }
-        )
+        );
 
-        const data = await resp.json()
+        const data = await resp.json();
 
         if (!resp.ok) {
           const errorMsg = data.error === 'Invalid YouTube ID format'
             ? (await translate('mapping-invalid-id') || 'Invalid YouTube ID.')
-            : (await translate('mapping-error') || 'Error linking video.')
-          status.textContent = errorMsg
-          status.classList.add('error')
-          return
+            : (await translate('mapping-error') || 'Error linking video.');
+          status.textContent = errorMsg;
+          status.classList.add('error');
+          return;
         }
 
         // Update segments and activate skipping
-        segments = data.segments || []
-        skippedSegments.clear()
+        segments = data.segments || [];
+        skippedSegments.clear();
 
         if (segments.length > 0) {
           const successMsg = (await translate('mapping-success') || 'Linked! {count} segment(s) found.')
-            .replace('{count}', segments.length)
-          status.textContent = successMsg
-          status.classList.add('success')
+            .replace('{count}', segments.length);
+          status.textContent = successMsg;
+          status.classList.add('success');
 
           if (playerRef) {
-            setupSegmentSkipping(playerRef)
-            addProgressBarMarkers(playerRef)
+            setupSegmentSkipping(playerRef);
+            addProgressBarMarkers(playerRef);
           }
         } else {
-          status.textContent = await translate('mapping-no-segments') || 'Linked, but no segments found on SponsorBlock.'
-          status.classList.add('success')
+          status.textContent = await translate('mapping-no-segments') || 'Linked, but no segments found on SponsorBlock.';
+          status.classList.add('success');
         }
 
         // Update current mapping display
-        currentDiv.textContent = ''
-        currentDiv.appendChild(document.createTextNode(currentLabel + ' '))
-        const codeEl = document.createElement('code')
-        codeEl.textContent = data.youtubeId
-        currentDiv.appendChild(codeEl)
-        input.value = ''
+        currentDiv.textContent = '';
+        currentDiv.appendChild(document.createTextNode(currentLabel + ' '));
+        const codeEl = document.createElement('code');
+        codeEl.textContent = data.youtubeId;
+        currentDiv.appendChild(codeEl);
+        input.value = '';
 
       } catch (e) {
-        status.textContent = await translate('mapping-error') || 'Error linking video.'
-        status.classList.add('error')
+        status.textContent = await translate('mapping-error') || 'Error linking video.';
+        status.classList.add('error');
       } finally {
-        btn.disabled = false
+        btn.disabled = false;
       }
-    })
+    });
 
     // Allow Enter key to submit
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') btn.click()
-    })
+      if (e.key === 'Enter') btn.click();
+    });
 
-    container.prepend(widget)
+    container.prepend(widget);
   }
 
   /**
    * Add visual markers to the progress bar
    */
   function addProgressBarMarkers(player) {
-    if (!player || segments.length === 0) return
+    if (!player || segments.length === 0) return;
 
     try {
       // Access seek bar element with fallback for PeerTube v8 wrapper
-      let seekBarEl
+      let seekBarEl;
       try {
-        seekBarEl = player.controlBar.progressControl.seekBar.el()
+        seekBarEl = player.controlBar.progressControl.seekBar.el();
       } catch {
-        seekBarEl = document.querySelector('.vjs-progress-holder')
+        seekBarEl = document.querySelector('.vjs-progress-holder');
       }
-      if (!seekBarEl) return
+      if (!seekBarEl) return;
 
       // Access the native HTML5 <video> element for duration
       const videoEl = player.el
         ? player.el().querySelector('video')
-        : document.querySelector('.vjs-tech')
-      if (!videoEl) return
+        : document.querySelector('.vjs-tech');
+      if (!videoEl) return;
 
-      const duration = videoEl.duration
+      const duration = videoEl.duration;
       if (!duration || duration === Infinity || isNaN(duration)) {
         // Wait for duration to be available
-        videoEl.addEventListener('durationchange', () => addProgressBarMarkers(player), { once: true })
-        return
+        videoEl.addEventListener('durationchange', () => addProgressBarMarkers(player), { once: true });
+        return;
       }
 
       // Remove existing markers
-      const existingMarkers = seekBarEl.querySelectorAll('.sponsorblock-marker')
-      existingMarkers.forEach(marker => marker.remove())
+      const existingMarkers = seekBarEl.querySelectorAll('.sponsorblock-marker');
+      existingMarkers.forEach(marker => marker.remove());
 
       // Add markers for each segment
       segments.forEach(segment => {
-        const startPercent = (segment.start_time / duration) * 100
-        const widthPercent = ((segment.end_time - segment.start_time) / duration) * 100
+        const startPercent = (segment.start_time / duration) * 100;
+        const widthPercent = ((segment.end_time - segment.start_time) / duration) * 100;
 
-        const marker = document.createElement('div')
-        marker.className = 'sponsorblock-marker'
-        marker.dataset.category = segment.category
+        const marker = document.createElement('div');
+        marker.className = 'sponsorblock-marker';
+        marker.dataset.category = segment.category;
         marker.style.cssText = `
           position: absolute;
           top: 0;
@@ -375,17 +373,17 @@ function register({ registerHook, peertubeHelpers }) {
           width: ${widthPercent}%;
           pointer-events: none;
           z-index: 30;
-        `
-        marker.title = `${segment.category}: ${segment.start_time}s - ${segment.end_time}s`
+        `;
+        marker.title = `${segment.category}: ${segment.start_time}s - ${segment.end_time}s`;
 
-        seekBarEl.appendChild(marker)
-      })
+        seekBarEl.appendChild(marker);
+      });
 
-      console.log(`[SponsorBlock] Added ${segments.length} progress bar markers`)
+      console.log(`[SponsorBlock] Added ${segments.length} progress bar markers`);
     } catch (error) {
-      console.error('[SponsorBlock] Failed to add progress bar markers:', error)
+      console.error('[SponsorBlock] Failed to add progress bar markers:', error);
     }
   }
 }
 
-export { register }
+export { register };
