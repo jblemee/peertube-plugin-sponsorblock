@@ -1,6 +1,6 @@
 {
   "name": "peertube-plugin-sponsorblock",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Automatically skip or remove sponsor segments in videos imported from YouTube using the SponsorBlock API",
   "license": "AGPL-3.0",
   "engine": {
