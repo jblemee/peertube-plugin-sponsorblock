@@ -243,7 +243,7 @@ async function regenerateHlsMetadata(fmp4Path, logger) {
 
   try {
     const tmpM3u8 = path.join(tmpDir, 'output.m3u8')
-    const tmpFmp4 = path.join(tmpDir, 'output.mp4')
+    const tmpFmp4 = path.join(tmpDir, 'output.m4s')
 
     // Regenerate HLS playlist + fMP4 from the processed file
     await execFileAsync('ffmpeg', [

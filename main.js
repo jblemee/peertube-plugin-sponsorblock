@@ -272,10 +272,17 @@ async function initDatabase(peertubeHelpers) {
         error TEXT,
         retry_count INTEGER DEFAULT 0,
         max_retries INTEGER DEFAULT 3,
+        cut_completed BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW(),
         started_at TIMESTAMP,
         completed_at TIMESTAMP
       );
+    `)
+
+    // Migration: add cut_completed column if missing (existing installs)
+    await database.query(`
+      ALTER TABLE plugin_sponsorblock_processing_queue
+        ADD COLUMN IF NOT EXISTS cut_completed BOOLEAN DEFAULT FALSE;
     `)
 
     await database.query(`
@@ -568,11 +575,26 @@ async function startWorker(peertubeHelpers, settingsManager) {
 
         const segments = typeof job.segments === 'string' ? JSON.parse(job.segments) : job.segments
 
-        for (const file of videoFiles) {
-          logger.info(`Processing file: ${file.type} - ${file.path}`)
-          const duration = await getVideoDuration(file.path)
-          await processVideoFile(file.path, segments, duration, logger)
+        // Phase 1: Cut segments from all video files (skip on retry if already done)
+        if (!job.cut_completed) {
+          for (const file of videoFiles) {
+            logger.info(`Cutting file: ${file.type} - ${file.path}`)
+            const duration = await getVideoDuration(file.path)
+            await processVideoFile(file.path, segments, duration, logger)
+          }
 
+          // Mark cuts as done so retries don't re-cut
+          await database.query(`
+            UPDATE plugin_sponsorblock_processing_queue
+            SET cut_completed = TRUE
+            WHERE id = $1
+          `, { bind: [job.id] })
+        } else {
+          logger.info(`Job ${job.id}: cuts already completed, skipping to HLS regeneration`)
+        }
+
+        // Phase 2: Regenerate HLS metadata for fragmented MP4 files
+        for (const file of videoFiles) {
           if (file.type === 'hls') {
             await regenerateHlsMetadata(file.path, logger)
           }
