@@ -1,8 +1,6 @@
 {
-  "operation-mode": "Operation mode",
-  "skip-segments": "Skip segments (client-side)",
-  "remove-segments": "Remove segments permanently (experimental)",
-  "mode-description": "Skip mode: Segments are skipped during playback. Remove mode: Segments are permanently deleted from video files (requires FFmpeg).",
+  "skip-enabled": "Skip segments during playback",
+  "skip-description": "When enabled, segments are automatically skipped in the video player. Permanent removal via FFmpeg can be triggered independently from the dashboard.",
   "category-sponsor": "Sponsors",
   "category-selfpromo": "Self-promotion",
   "category-interaction": "Interaction reminders",

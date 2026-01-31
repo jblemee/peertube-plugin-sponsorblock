@@ -1,8 +1,6 @@
 {
-  "operation-mode": "Mode d'opération",
-  "skip-segments": "Sauter les segments (côté client)",
-  "remove-segments": "Supprimer les segments définitivement (expérimental)",
-  "mode-description": "Mode saut : Les segments sont sautés pendant la lecture. Mode suppression : Les segments sont définitivement supprimés des fichiers vidéo (nécessite FFmpeg).",
+  "skip-enabled": "Sauter les segments pendant la lecture",
+  "skip-description": "Quand activé, les segments sont automatiquement sautés dans le lecteur vidéo. La suppression permanente via FFmpeg peut être déclenchée indépendamment depuis le tableau de bord.",
   "category-sponsor": "Sponsors",
   "category-selfpromo": "Auto-promotion",
   "category-interaction": "Rappels d'interaction",
