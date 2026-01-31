@@ -105,7 +105,7 @@ async function register({
   await registerRoutes({ router, peertubeHelpers, settingsManager })
 
   // Register hooks for video import
-  registerImportHooks(registerHook, peertubeHelpers, settingsManager)
+  registerHooks(registerHook, peertubeHelpers, settingsManager)
 
   // Start background worker for processing
   await startWorker(peertubeHelpers, settingsManager)
@@ -286,8 +286,43 @@ async function initDatabase(peertubeHelpers) {
 /**
  * Register hooks for video import
  */
-function registerImportHooks(registerHook, peertubeHelpers, settingsManager) {
+function registerHooks(registerHook, peertubeHelpers, settingsManager) {
   const logger = peertubeHelpers.logger
+  const database = peertubeHelpers.database
+
+  // Hook: Clean up mapping and segments when a video is deleted
+  registerHook({
+    target: 'action:api.video.deleted',
+    handler: async ({ video }) => {
+      try {
+        const [mappings] = await database.query(
+          'SELECT youtube_id FROM plugin_sponsorblock_mapping WHERE peertube_uuid = $1',
+          { bind: [video.uuid] }
+        )
+
+        if (!mappings || mappings.length === 0) return
+
+        const youtubeId = mappings[0].youtube_id
+
+        await database.query(
+          'DELETE FROM plugin_sponsorblock_mapping WHERE peertube_uuid = $1',
+          { bind: [video.uuid] }
+        )
+        await database.query(
+          'DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1',
+          { bind: [youtubeId] }
+        )
+        await database.query(
+          'DELETE FROM plugin_sponsorblock_processing_queue WHERE video_uuid = $1',
+          { bind: [video.uuid] }
+        )
+
+        logger.info(`Cleaned up SponsorBlock data for deleted video ${video.uuid}`)
+      } catch (error) {
+        logger.error('Error cleaning up after video deletion', error)
+      }
+    }
+  })
 
   // Hook: After video import from URL
   registerHook({
