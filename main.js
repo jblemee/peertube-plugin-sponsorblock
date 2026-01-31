@@ -7,6 +7,8 @@ const { registerRoutes } = require('./server/routes')
 const { getVideoDuration, processVideoFile, findVideoFiles } = require('./server/ffmpeg')
 
 let workerIntervalId = null
+let syncIntervalId = null
+let lastSyncCheck = 0
 
 async function register({
   registerHook,
@@ -39,6 +41,9 @@ async function register({
   // Start background worker for processing
   await startWorker(peertubeHelpers, settingsManager)
 
+  // Start periodic sync timer
+  startSyncTimer(peertubeHelpers, settingsManager)
+
   logger.info('PeerTube SponsorBlock plugin registered successfully')
 }
 
@@ -46,6 +51,10 @@ async function unregister() {
   if (workerIntervalId) {
     clearInterval(workerIntervalId)
     workerIntervalId = null
+  }
+  if (syncIntervalId) {
+    clearInterval(syncIntervalId)
+    syncIntervalId = null
   }
 }
 
@@ -119,6 +128,20 @@ function registerSettings(registerSetting) {
     default: '/var/www/peertube/storage',
     private: true,
     descriptionHTML: 'Absolute path to the PeerTube storage directory. Required for remove mode.'
+  })
+
+  registerSetting({
+    name: 'sync_interval',
+    label: 'Periodic sync interval (hours)',
+    type: 'input',
+    default: '0',
+    descriptionHTML: 'Automatically re-fetch segments for all mapped videos at this interval. Set to 0 to disable.'
+  })
+
+  registerSetting({
+    name: 'admin-dashboard-container',
+    type: 'html',
+    html: '<div id="sponsorblock-admin-dashboard"></div>'
   })
 }
 
@@ -472,6 +495,85 @@ async function startWorker(peertubeHelpers, settingsManager) {
   }, 30000)
 
   logger.info('Background worker started (30s polling)')
+}
+
+/**
+ * Start periodic sync timer
+ * Checks every 5 minutes if sync_interval has elapsed, then re-fetches all segments
+ */
+function startSyncTimer(peertubeHelpers, settingsManager) {
+  const logger = peertubeHelpers.logger
+  const database = peertubeHelpers.database
+  const CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes
+
+  syncIntervalId = setInterval(async () => {
+    try {
+      const intervalHours = parseFloat(await settingsManager.getSetting('sync_interval')) || 0
+      if (intervalHours <= 0) return
+
+      const intervalMs = intervalHours * 3600 * 1000
+      const now = Date.now()
+
+      if (lastSyncCheck > 0 && (now - lastSyncCheck) < intervalMs) return
+
+      lastSyncCheck = now
+      logger.info('Periodic sync: starting')
+
+      const [mappings] = await database.query(
+        'SELECT peertube_uuid, youtube_id FROM plugin_sponsorblock_mapping'
+      )
+
+      const apiUrl = await settingsManager.getSetting('api_url') || 'https://sponsor.ajay.app'
+
+      for (const mapping of (mappings || [])) {
+        try {
+          const response = await fetch(`${apiUrl}/api/skipSegments?videoID=${mapping.youtube_id}`)
+
+          if (response.ok) {
+            const apiSegments = await response.json()
+
+            await database.query(
+              'DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1',
+              { bind: [mapping.youtube_id] }
+            )
+
+            for (const segment of apiSegments) {
+              await database.query(`
+                INSERT INTO plugin_sponsorblock_segments
+                (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (segment_uuid) DO NOTHING
+              `, { bind: [
+                mapping.youtube_id,
+                segment.UUID,
+                segment.segment[0],
+                segment.segment[1],
+                segment.category,
+                segment.actionType || 'skip',
+                segment.votes || 0
+              ] })
+            }
+          }
+
+          await database.query(
+            'UPDATE plugin_sponsorblock_mapping SET last_sync = NOW() WHERE peertube_uuid = $1',
+            { bind: [mapping.peertube_uuid] }
+          )
+        } catch (err) {
+          logger.error(`Periodic sync: failed for ${mapping.youtube_id}`, err)
+        }
+
+        // Rate limit: 200ms between requests
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+
+      logger.info(`Periodic sync: complete (${(mappings || []).length} mappings)`)
+    } catch (error) {
+      logger.error('Periodic sync error', error)
+    }
+  }, CHECK_INTERVAL)
+
+  logger.info('Periodic sync timer started (5-min check interval)')
 }
 
 module.exports = {

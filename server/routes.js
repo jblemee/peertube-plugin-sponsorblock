@@ -343,6 +343,201 @@ async function registerRoutes({ router, peertubeHelpers }) {
   })
 
   /**
+   * GET /admin/stats
+   * Returns dashboard statistics
+   */
+  router.get('/admin/stats', async (req, res) => {
+    try {
+      const user = await peertubeHelpers.user.getAuthUser(res)
+      if (!user || user.role !== 0) {
+        return res.status(403).json({ error: 'Admin access required' })
+      }
+
+      const database = peertubeHelpers.database
+
+      const [[mappingCount], [segmentStats], [queueStats], [lastSync]] = await Promise.all([
+        database.query('SELECT COUNT(*) AS count FROM plugin_sponsorblock_mapping'),
+        database.query('SELECT COUNT(*) AS count, COALESCE(SUM(end_time - start_time), 0) AS total_time FROM plugin_sponsorblock_segments'),
+        database.query(`
+          SELECT
+            COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+            COUNT(*) FILTER (WHERE status = 'processing') AS processing,
+            COUNT(*) FILTER (WHERE status = 'done') AS done,
+            COUNT(*) FILTER (WHERE status = 'error') AS errored
+          FROM plugin_sponsorblock_processing_queue
+        `),
+        database.query('SELECT MAX(last_sync) AS last_global_sync FROM plugin_sponsorblock_mapping')
+      ])
+
+      res.json({
+        mapped_videos: parseInt(mappingCount[0].count, 10),
+        total_segments: parseInt(segmentStats[0].count, 10),
+        total_time_saved: parseFloat(segmentStats[0].total_time) || 0,
+        queue: {
+          pending: parseInt(queueStats[0].pending, 10),
+          processing: parseInt(queueStats[0].processing, 10),
+          done: parseInt(queueStats[0].done, 10),
+          errored: parseInt(queueStats[0].errored, 10)
+        },
+        last_global_sync: lastSync[0].last_global_sync
+      })
+    } catch (error) {
+      logger.error('Error fetching admin stats', error)
+      res.status(500).json({ error: 'Internal server error' })
+    }
+  })
+
+  /**
+   * GET /admin/mappings
+   * Returns all mappings with segment counts and queue status
+   */
+  router.get('/admin/mappings', async (req, res) => {
+    try {
+      const user = await peertubeHelpers.user.getAuthUser(res)
+      if (!user || user.role !== 0) {
+        return res.status(403).json({ error: 'Admin access required' })
+      }
+
+      const database = peertubeHelpers.database
+
+      const [mappings] = await database.query(`
+        SELECT
+          m.peertube_uuid,
+          m.youtube_id,
+          m.created_at,
+          m.last_sync,
+          COALESCE(seg.segment_count, 0) AS segment_count,
+          COALESCE(seg.time_saved, 0) AS time_saved,
+          q.status AS queue_status,
+          q.error AS queue_error
+        FROM plugin_sponsorblock_mapping m
+        LEFT JOIN (
+          SELECT youtube_id, COUNT(*) AS segment_count, SUM(end_time - start_time) AS time_saved
+          FROM plugin_sponsorblock_segments
+          GROUP BY youtube_id
+        ) seg ON seg.youtube_id = m.youtube_id
+        LEFT JOIN LATERAL (
+          SELECT status, error FROM plugin_sponsorblock_processing_queue
+          WHERE video_uuid = m.peertube_uuid
+          ORDER BY created_at DESC LIMIT 1
+        ) q ON true
+        ORDER BY m.created_at DESC
+      `)
+
+      res.json({ mappings: mappings || [] })
+    } catch (error) {
+      logger.error('Error fetching admin mappings', error)
+      res.status(500).json({ error: 'Internal server error' })
+    }
+  })
+
+  /**
+   * DELETE /mapping/:videoUuid
+   * Delete a mapping and its orphaned segments
+   */
+  router.delete('/mapping/:videoUuid', async (req, res) => {
+    const videoUuid = req.params.videoUuid
+
+    try {
+      const user = await peertubeHelpers.user.getAuthUser(res)
+      if (!user || user.role !== 0) {
+        return res.status(403).json({ error: 'Admin access required' })
+      }
+
+      const database = peertubeHelpers.database
+
+      // Get the youtube_id before deleting the mapping
+      const [mappings] = await database.query(
+        'SELECT youtube_id FROM plugin_sponsorblock_mapping WHERE peertube_uuid = $1',
+        { bind: [videoUuid] }
+      )
+
+      if (!mappings || mappings.length === 0) {
+        return res.status(404).json({ error: 'Mapping not found' })
+      }
+
+      const youtubeId = mappings[0].youtube_id
+
+      // Delete the mapping
+      await database.query(
+        'DELETE FROM plugin_sponsorblock_mapping WHERE peertube_uuid = $1',
+        { bind: [videoUuid] }
+      )
+
+      // Delete queue entries for this video
+      await database.query(
+        'DELETE FROM plugin_sponsorblock_processing_queue WHERE video_uuid = $1',
+        { bind: [videoUuid] }
+      )
+
+      // Delete segments only if no other mapping references the same youtube_id
+      const [otherMappings] = await database.query(
+        'SELECT 1 FROM plugin_sponsorblock_mapping WHERE youtube_id = $1 LIMIT 1',
+        { bind: [youtubeId] }
+      )
+
+      if (!otherMappings || otherMappings.length === 0) {
+        await database.query(
+          'DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1',
+          { bind: [youtubeId] }
+        )
+      }
+
+      logger.info(`Deleted mapping ${videoUuid} -> ${youtubeId}`)
+
+      res.json({ success: true })
+    } catch (error) {
+      logger.error('Error deleting mapping', error)
+      res.status(500).json({ error: 'Internal server error' })
+    }
+  })
+
+  /**
+   * POST /sync-all
+   * Re-fetch segments for all mappings in background
+   */
+  router.post('/sync-all', async (req, res) => {
+    try {
+      const user = await peertubeHelpers.user.getAuthUser(res)
+      if (!user || user.role !== 0) {
+        return res.status(403).json({ error: 'Admin access required' })
+      }
+
+      const database = peertubeHelpers.database
+
+      const [mappings] = await database.query(
+        'SELECT peertube_uuid, youtube_id FROM plugin_sponsorblock_mapping'
+      )
+
+      const total = (mappings || []).length
+
+      // Respond immediately
+      res.json({ success: true, total })
+
+      // Process in background with rate limiting
+      ;(async () => {
+        for (const mapping of (mappings || [])) {
+          try {
+            await fetchAndCacheSegments(database, mapping.youtube_id, logger)
+            await database.query(
+              'UPDATE plugin_sponsorblock_mapping SET last_sync = NOW() WHERE peertube_uuid = $1',
+              { bind: [mapping.peertube_uuid] }
+            )
+          } catch (err) {
+            logger.error(`Sync-all: failed for ${mapping.youtube_id}`, err)
+          }
+          // Rate limit: 200ms between requests
+          await new Promise(resolve => setTimeout(resolve, 200))
+        }
+        logger.info(`Sync-all complete: ${total} mappings processed`)
+      })()
+    } catch (error) {
+      logger.error('Error in sync-all', error)
+      res.status(500).json({ error: 'Internal server error' })
+    }
+  })
+
+  /**
    * POST /sync/:videoUuid
    * Manually trigger sync for a video
    */

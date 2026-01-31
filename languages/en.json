@@ -33,5 +33,45 @@
   "process-no-segments": "No segments found to process for this video.",
   "process-no-mapping": "No YouTube mapping found for this video.",
   "process-all-queued": "{count} video(s) queued for processing.",
-  "process-error": "An error occurred while queuing video for processing."
+  "process-error": "An error occurred while queuing video for processing.",
+
+  "sync-interval": "Periodic sync interval (hours)",
+  "sync-interval-description": "Automatically re-fetch segments for all mapped videos at this interval. Set to 0 to disable.",
+
+  "admin-stats-mapped": "Mapped Videos",
+  "admin-stats-segments": "Total Segments",
+  "admin-stats-time-saved": "Time Saved",
+  "admin-stats-queue": "Queue Pending",
+
+  "admin-btn-scan": "Scan Imports",
+  "admin-btn-sync-all": "Sync All",
+  "admin-btn-process-all": "Process All",
+
+  "admin-table-uuid": "Video UUID",
+  "admin-table-youtube": "YouTube ID",
+  "admin-table-segments": "Segments",
+  "admin-table-saved": "Time Saved",
+  "admin-table-synced": "Last Sync",
+  "admin-table-queue": "Queue",
+  "admin-table-actions": "Actions",
+
+  "admin-action-sync": "Sync",
+  "admin-action-process": "Process",
+  "admin-action-delete": "Delete",
+
+  "admin-scan-started": "Scanning imports…",
+  "admin-scan-result": "Scanned {scanned}, mapped {mapped} new video(s).",
+  "admin-sync-started": "Syncing all mappings ({total})…",
+  "admin-process-result": "Queued {queued} video(s) for processing.",
+  "admin-delete-confirm": "Delete mapping for this video?",
+  "admin-delete-success": "Mapping deleted.",
+  "admin-no-mappings": "No mappings yet. Use Scan Imports or link videos manually.",
+
+  "admin-queue-pending": "Pending",
+  "admin-queue-processing": "Processing",
+  "admin-queue-done": "Done",
+  "admin-queue-error": "Error",
+
+  "admin-last-sync-never": "Never",
+  "admin-last-sync-ago": "{time} ago"
 }

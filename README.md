@@ -1,146 +1,161 @@
 # PeerTube Plugin SponsorBlock
 
-Plugin PeerTube pour intégrer SponsorBlock et sauter (ou supprimer) automatiquement les segments sponsorisés des vidéos importées depuis YouTube.
+PeerTube plugin to integrate SponsorBlock and automatically skip (or permanently remove) sponsor segments from videos imported from YouTube.
 
-## 🎯 Objectif
+## Goal
 
-Permettre aux instances PeerTube de bénéficier de la base de données crowdsourcée SponsorBlock pour améliorer l'expérience de visionnage des vidéos importées depuis YouTube.
+Allow PeerTube instances to leverage the crowdsourced SponsorBlock database to improve the viewing experience of videos imported from YouTube.
 
-## 📋 Statut du projet
+## Project Status
 
-**🚧 En développement actif**
+**Under active development**
 
-Phase 1 (skip client) et Phase 3 (suppression permanente) sont implémentées. Consultez les documents de recherche :
-- [`RESEARCH.md`](./RESEARCH.md) - Recherche sur l'état de l'art et les capacités PeerTube
-- [`TECHNICAL_ANALYSIS.md`](./TECHNICAL_ANALYSIS.md) - Analyse technique de la suppression permanente des segments
+Phase 1 (client-side skip), Phase 2 (admin dashboard & periodic sync), and Phase 3 (permanent removal) are implemented.
 
-## ✨ Fonctionnalités prévues
+See the [User Guide](USER_GUIDE.md) for installation and usage instructions.
 
-### Phase 1 : MVP (Skip côté client)
-- ✅ Détection automatique de l'ID YouTube lors de l'import
-- ✅ Récupération des segments SponsorBlock via API
-- ✅ Saut automatique des segments dans le lecteur vidéo
-- ✅ Cache local des segments
-- ✅ Configuration par catégorie (sponsor, intro, outro, etc.)
+## Features
 
-### Phase 2 : Améliorations
-- Interface d'administration pour gérer les mappings
-- Synchronisation périodique avec SponsorBlock
-- Support des vidéos déjà importées (migration)
-- Statistiques et métriques
-- Indicateurs visuels sur la timeline
+### Phase 1: MVP (Client-side skip)
+- Automatic YouTube ID detection on import
+- SponsorBlock segment retrieval via API
+- Automatic segment skipping in the video player
+- Local segment caching
+- Per-category configuration (sponsor, intro, outro, etc.)
 
-### Phase 3 : Suppression permanente
-- ✅ Worker de traitement en arrière-plan (polling 30s)
-- ✅ File d'attente avec priorités et retries
-- ✅ Découpe FFmpeg (`-c copy`) et concaténation
-- ✅ Support web-videos, HLS et fichiers originaux
-- ✅ Routes API : traitement unitaire et en masse
-- ✅ Suppression automatique à l'import (mode `remove`)
-- ✅ Paramètre `storage_path` configurable
+### Phase 2: Admin dashboard & sync
+- Admin dashboard with statistics and mappings table
+- Periodic sync with SponsorBlock (configurable interval)
+- Manual "Scan Imports" to map existing videos
+- Per-row Sync / Process / Delete actions
+- Color-coded category markers on the progress bar
 
-## 🏗️ Architecture
+### Phase 3: Permanent removal
+- Background processing worker (30s polling)
+- Priority queue with retries
+- FFmpeg cutting (`-c copy`) and concatenation
+- Support for web-videos, HLS, and original files
+- API routes: single and bulk processing
+- Automatic processing on import (in `remove` mode)
+- Configurable `storage_path` setting
 
-### Composants principaux
+## Architecture
 
-1. **Table de mapping YouTube ↔ PeerTube**
+### Main components
+
+1. **YouTube-to-PeerTube mapping table**
    ```sql
    plugin_sponsorblock_mapping (peertube_uuid, youtube_id)
    ```
 
-2. **Cache de segments SponsorBlock**
+2. **SponsorBlock segments cache**
    ```sql
    plugin_sponsorblock_segments (youtube_id, start_time, end_time, category)
    ```
 
-3. **File d'attente de traitement FFmpeg**
+3. **FFmpeg processing queue**
    ```sql
    plugin_sponsorblock_processing_queue (video_uuid, segments, status, priority)
    ```
 
-4. **Hooks d'import**
-   - Capture l'ID YouTube lors de l'import
-   - Récupération automatique des segments
-   - Mise en file d'attente automatique en mode `remove`
+4. **Import hooks**
+   - Captures the YouTube ID on import
+   - Automatic segment retrieval
+   - Automatic queue insertion in `remove` mode
 
-5. **Worker de traitement**
-   - Polling toutes les 30s (actif uniquement en mode `remove`)
-   - Verrouillage optimiste (`FOR UPDATE SKIP LOCKED`)
-   - Retry automatique (3 tentatives max)
+5. **Processing worker**
+   - 30s polling (active only in `remove` mode)
+   - Optimistic locking (`FOR UPDATE SKIP LOCKED`)
+   - Automatic retry (3 attempts max)
 
-6. **Intégration lecteur vidéo**
-   - Skip automatique lors de la lecture
-   - Notifications visuelles
+6. **Video player integration**
+   - Automatic segment skipping during playback
+   - Visual notifications
 
-## 📚 Documentation de recherche
+7. **Admin dashboard**
+   - Stats cards (mapped videos, segments, time saved, queue pending)
+   - Mappings table with per-row actions
+   - Bulk actions (Scan Imports, Sync All, Process All)
+   - Periodic sync timer (configurable)
 
-### État de l'art
+## Documentation
 
-**Aucun plugin SponsorBlock natif pour PeerTube n'existe actuellement.**
+- [User Guide](USER_GUIDE.md) — Installation, configuration, and usage guide for instance administrators
+- [Development Guide](DEVELOPMENT.md) — Development setup, project structure, testing, and contributing
+- [Changelog](CHANGELOG.md) — Version history and release notes
+- [TODO](TODO.md) — Roadmap, planned features, and known issues
+- [Research](RESEARCH.md) — State-of-the-art research and PeerTube plugin capabilities
+- [Technical Analysis](TECHNICAL_ANALYSIS.md) — Technical analysis of permanent segment removal with FFmpeg
 
-Projets similaires :
-- **peertube-plugin-chapters** : Chapitres manuels (non crowdsourcés)
-- **Tubular** : App Android avec support SponsorBlock + PeerTube
+## Research highlights
 
-Feature requests ouvertes depuis 2020 :
+### State of the art
+
+**No native SponsorBlock plugin for PeerTube currently exists.**
+
+Similar projects:
+- **peertube-plugin-chapters**: Manual chapters (not crowdsourced)
+- **Tubular**: Android app with SponsorBlock + PeerTube support
+
+Open feature requests since 2020:
 - [ajayyy/SponsorBlock#1209](https://github.com/ajayyy/SponsorBlock/issues/1209)
 - [ajayyy/SponsorBlock#1938](https://github.com/ajayyy/SponsorBlock/issues/1938)
 - [ajayyy/SponsorBlock#993](https://github.com/ajayyy/SponsorBlock/issues/993)
 
-### Capacités PeerTube
+### PeerTube capabilities
 
-Le système de plugins PeerTube supporte :
-- ✅ Hooks d'import (`filter:api.video.post-import-url.accept.result`)
-- ✅ Hooks lecteur vidéo (`action:video-watch.video.loaded`)
-- ✅ Accès base de données (création de tables personnalisées)
-- ✅ Requêtes HTTP externes (API SponsorBlock)
-- ✅ Modification de l'interface utilisateur
+The PeerTube plugin system supports:
+- Import hooks (`filter:api.video.post-import-url.accept.result`)
+- Video player hooks (`action:video-watch.video.loaded`)
+- Database access (custom table creation)
+- External HTTP requests (SponsorBlock API)
+- UI modification
 
-## 🛠️ Technologies
+## Technologies
 
-- **PeerTube** : Plateforme vidéo décentralisée
-- **SponsorBlock API** : https://sponsor.ajay.app/api/
-- **FFmpeg/ffprobe** : Pour la suppression permanente des segments
-- **PostgreSQL** : Base de données PeerTube
-- **Node.js** : Runtime du plugin
+- **PeerTube**: Decentralized video platform
+- **SponsorBlock API**: https://sponsor.ajay.app/api/
+- **FFmpeg/ffprobe**: For permanent segment removal
+- **PostgreSQL**: PeerTube database
+- **Node.js**: Plugin runtime
 
-## 📖 Ressources
+## Resources
 
-### Documentation PeerTube
-- [Guide des plugins](https://docs.joinpeertube.org/contribute/plugins)
-- [API Plugins](https://docs.joinpeertube.org/api/plugins)
+### PeerTube documentation
+- [Plugin Guide](https://docs.joinpeertube.org/contribute/plugins)
+- [Plugin API](https://docs.joinpeertube.org/api/plugins)
 - [Architecture](https://docs.joinpeertube.org/contribute/architecture)
 
 ### SponsorBlock
-- [Documentation API](https://wiki.sponsor.ajay.app/w/API_Docs)
-- [Code source](https://github.com/ajayyy/SponsorBlock)
+- [API Documentation](https://wiki.sponsor.ajay.app/w/API_Docs)
+- [Source Code](https://github.com/ajayyy/SponsorBlock)
 
-## 🤝 Contribution
+## Contributing
 
-Ce projet est en phase de recherche. Les contributions sont bienvenues :
-- Retours d'expérience sur PeerTube
-- Expertise FFmpeg
-- Tests sur instances PeerTube de développement
+Contributions are welcome:
+- PeerTube experience and feedback
+- FFmpeg expertise
+- Testing on development PeerTube instances
 
-## 📄 Licence
+## License
 
-À définir (probablement AGPL-3.0 pour compatibilité avec PeerTube)
+AGPL-3.0 (for compatibility with PeerTube)
 
-## ⚠️ Avertissements
+## Warnings
 
-### Mode "Skip" (Phase 1)
-- Les segments sont toujours téléchargés (pas d'économie de bande passante)
-- Fonctionne uniquement dans le lecteur web PeerTube
+### "Skip" mode (Phase 1)
+- Segments are still downloaded (no bandwidth savings)
+- Works only in the PeerTube web player
 
-### Mode "Suppression permanente"
-- ⚠️ Modification irréversible des fichiers vidéo
-- Utilise `ffmpeg -c copy` (remuxage sans réencodage, rapide et sans perte de qualité)
-- Timestamps de commentaires décalés après suppression
-- Retry automatique (3 tentatives) en cas d'erreur
-- **Recommandé uniquement avec backups automatiques**
-- Nécessite `ffmpeg` et `ffprobe` dans le `PATH`
+### "Permanent removal" mode
+- Irreversible modification of video files
+- Uses `ffmpeg -c copy` (remuxing without re-encoding, fast and lossless)
+- Comment timestamps will be shifted after removal
+- Automatic retry (3 attempts) on error
+- **Recommended only with automatic backups**
+- Requires `ffmpeg` and `ffprobe` in the `PATH`
 
 ---
 
-**Auteur** : À compléter
-**Date de création** : 2026-01-31
+**Author**: Jean-Baptiste L.
+**Created**: 2026-01-31

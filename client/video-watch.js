@@ -358,13 +358,13 @@ function register({ registerHook, peertubeHelpers }) {
 
         const marker = document.createElement('div')
         marker.className = 'sponsorblock-marker'
+        marker.dataset.category = segment.category
         marker.style.cssText = `
           position: absolute;
           top: 0;
           bottom: 0;
           left: ${startPercent}%;
           width: ${widthPercent}%;
-          background-color: rgba(0, 255, 0, 0.6);
           pointer-events: none;
           z-index: 30;
         `

@@ -40,6 +40,10 @@
     {
       "script": "client/video-watch.js",
       "scopes": ["video-watch"]
+    },
+    {
+      "script": "client/admin.js",
+      "scopes": ["admin-plugin"]
     }
   ],
   "translations": {

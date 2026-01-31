@@ -1,124 +1,124 @@
 # TODO
 
-## Phase 1 : MVP (Client-side skip) - En cours
+## Phase 1: MVP (Client-side skip) — In Progress
 
-### Terminé ✅
-- [x] Structure du projet
-- [x] Package.json avec métadonnées PeerTube
-- [x] Tables de base de données
-- [x] Hook d'import YouTube
-- [x] Extraction de l'ID YouTube
-- [x] Intégration API SponsorBlock
-- [x] Cache des segments en DB
+### Completed
+- [x] Project structure
+- [x] Package.json with PeerTube metadata
+- [x] Database tables
+- [x] YouTube import hook
+- [x] YouTube ID extraction
+- [x] SponsorBlock API integration
+- [x] Segment caching in DB
 - [x] Client-side skip logic
-- [x] Marqueurs sur la barre de progression
-- [x] Notifications de skip
-- [x] API REST pour récupérer les segments
-- [x] Paramètres du plugin
-- [x] Traductions (EN, FR)
-- [x] CSS pour les marqueurs
-- [x] Documentation de développement
+- [x] Progress bar markers
+- [x] Skip notifications
+- [x] REST API for segment retrieval
+- [x] Plugin settings
+- [x] Translations (EN, FR)
+- [x] CSS for markers
+- [x] Development documentation
 
-### À faire 🔨
+### To Do
 
-#### Priorité haute
-- [ ] Tester le plugin sur une instance PeerTube réelle
-- [ ] Corriger les bugs identifiés lors des tests
-- [ ] Ajouter la gestion des erreurs manquantes
-- [ ] Valider la compatibilité Video.js
-- [ ] Tester avec différentes catégories de segments
+#### High Priority
+- [ ] Test the plugin on a real PeerTube instance
+- [ ] Fix bugs identified during testing
+- [ ] Add missing error handling
+- [ ] Validate Video.js compatibility
+- [ ] Test with different segment categories
 
-#### Priorité moyenne
-- [ ] Améliorer les marqueurs visuels (couleurs par catégorie)
-- [ ] Ajouter un bouton pour désactiver temporairement le skip
-- [ ] Permettre de signaler un mauvais segment
-- [ ] Statistiques : temps total économisé
-- [ ] Support des playlists
+#### Medium Priority
+- [ ] Add a button to temporarily disable skipping
+- [ ] Allow reporting a bad segment
+- [ ] Statistics: total time saved
+- [ ] Playlist support
 
-#### Priorité basse
-- [ ] Tests unitaires
-- [ ] Tests d'intégration
+#### Low Priority
+- [ ] Unit tests
+- [ ] Integration tests
 - [ ] Linter (ESLint configuration)
 - [ ] CI/CD (GitHub Actions)
 
-## Phase 2 : Améliorations
+## Phase 2: Admin Dashboard & Sync
 
-### Interface d'administration
-- [ ] Page admin pour voir tous les mappings
-- [ ] Recherche de vidéos par YouTube ID
-- [ ] Bouton pour forcer la synchronisation
-- [ ] Logs d'activité du plugin
-- [ ] Dashboard avec statistiques
+### Admin Interface
+- [x] Admin page to view all mappings
+- [x] Button to force synchronization
+- [x] Dashboard with statistics
+- [x] Color-coded category markers on progress bar
+- [ ] Search videos by YouTube ID
+- [ ] Plugin activity logs
 
-### Migration et sync
-- [ ] Script pour migrer les vidéos existantes
-- [ ] Tâche cron pour sync périodique
-- [ ] Détection des segments obsolètes
-- [ ] Webhook si SponsorBlock supporte
-- [ ] Import/export des mappings
+### Migration and Sync
+- [x] Scan existing imports via POST /scan
+- [x] Periodic sync task (configurable interval)
+- [ ] Detect stale segments
+- [ ] Webhook if SponsorBlock supports it
+- [ ] Import/export mappings
 
-### Fonctionnalités avancées
-- [ ] Whitelist/blacklist de chaînes
-- [ ] Paramètres par utilisateur
-- [ ] Support des segments "mute" (au lieu de skip)
-- [ ] Prévisualisation avant skip (bouton "skip")
-- [ ] Historique des segments sautés
+### Advanced Features
+- [ ] Channel whitelist/blacklist
+- [ ] Per-user settings
+- [ ] "Mute" segment support (instead of skip)
+- [ ] Preview before skip (skip button)
+- [ ] Skipped segment history
 
-## Phase 3 : Suppression permanente
+## Phase 3: Permanent Removal
 
-### Analyse de faisabilité
-- [x] Vérifier l'accès aux fichiers vidéo depuis un plugin
-- [x] Tester FFmpeg depuis le contexte du plugin
-- [x] Valider les permissions nécessaires
-- [ ] Mesurer l'impact performance sur le serveur
+### Feasibility Analysis
+- [x] Verify video file access from a plugin
+- [x] Test FFmpeg from the plugin context
+- [x] Validate required permissions
+- [ ] Measure performance impact on the server
 
-### Implémentation
-- [x] Worker de traitement de la queue (`main.js` — polling 30s)
-- [x] Intégration FFmpeg découpe et concat (`server/ffmpeg.js` — `-c copy`)
-- [x] Gestion des multiples résolutions (web-videos + HLS)
-- [x] Support des playlists HLS
-- [x] File d'attente avec priorités (`plugin_sponsorblock_processing_queue`)
-- [x] Retry automatique (3 tentatives max, `FOR UPDATE SKIP LOCKED`)
-- [x] Routes API : `POST /process/:videoUuid` et `POST /process-all`
-- [x] Paramètre `storage_path` configurable
-- [x] Traduction des messages (EN, FR)
-- [ ] Système de backup automatique
-- [ ] Rollback en cas d'erreur
-- [ ] Gestion du stockage S3
+### Implementation
+- [x] Queue processing worker (`main.js` — 30s polling)
+- [x] FFmpeg cut and concat integration (`server/ffmpeg.js` — `-c copy`)
+- [x] Multi-resolution support (web-videos + HLS)
+- [x] HLS playlist support
+- [x] Priority queue (`plugin_sponsorblock_processing_queue`)
+- [x] Automatic retry (3 attempts max, `FOR UPDATE SKIP LOCKED`)
+- [x] API routes: `POST /process/:videoUuid` and `POST /process-all`
+- [x] Configurable `storage_path` setting
+- [x] Translation of messages (EN, FR)
+- [ ] Automatic backup system
+- [ ] Rollback on error
+- [ ] S3 storage support
 
-### Sécurité et stabilité
-- [x] Verrouillage optimiste des jobs (pas de double traitement)
-- [x] Validation du fichier de sortie (non vide)
-- [x] Nettoyage du répertoire temporaire (try/finally)
-- [ ] Vérification de l'intégrité des vidéos (checksum)
-- [ ] Limite de charge CPU
-- [ ] Monitoring et alertes
+### Security and Stability
+- [x] Optimistic job locking (no double processing)
+- [x] Output file validation (non-empty)
+- [x] Temporary directory cleanup (try/finally)
+- [ ] Video integrity check (checksum)
+- [ ] CPU load limiting
+- [ ] Monitoring and alerts
 
-## Bugs connus
+## Known Bugs
 
-- Aucun pour l'instant (plugin non testé en production)
+- None so far (plugin not tested in production)
 
-## Idées futures
+## Future Ideas
 
-- [ ] Support d'autres plateformes (Vimeo, Dailymotion)
-- [ ] Soumission de nouveaux segments à SponsorBlock
-- [ ] Segments générés par IA locale
-- [ ] Intégration avec d'autres plugins PeerTube
-- [ ] API pour clients mobiles
-- [ ] Extension navigateur complémentaire
-- [ ] Mode "preview" : montrer 2s du segment avant de skip
+- [ ] Support for other platforms (Vimeo, Dailymotion)
+- [ ] Submit new segments to SponsorBlock
+- [ ] AI-generated segments locally
+- [ ] Integration with other PeerTube plugins
+- [ ] API for mobile clients
+- [ ] Companion browser extension
+- [ ] "Preview" mode: show 2s of the segment before skipping
 
-## Questions ouvertes
+## Open Questions
 
-- **Performance** : Impact du skip sur la batterie mobile ?
-- **UX** : Faut-il un bouton "ne plus sauter ce type de segment" ?
-- **Légal** : Problèmes de droits d'auteur avec la suppression permanente ?
-- **Technique** : Utiliser le système de jobs Bull de PeerTube ?
-- **Communauté** : Héberger notre propre serveur SponsorBlock ?
+- **Performance**: Impact of skipping on mobile battery?
+- **UX**: Should there be a "stop skipping this segment type" button?
+- **Legal**: Copyright issues with permanent removal?
+- **Technical**: Use PeerTube's Bull job system?
+- **Community**: Host our own SponsorBlock server?
 
 ## Notes
 
-- Priorité : Sortir un MVP stable avant d'ajouter des features
-- Garder le code simple et maintenable
-- Documenter toutes les décisions techniques
-- Tester sur plusieurs instances PeerTube
+- Priority: Ship a stable MVP before adding features
+- Keep the code simple and maintainable
+- Document all technical decisions
+- Test on multiple PeerTube instances

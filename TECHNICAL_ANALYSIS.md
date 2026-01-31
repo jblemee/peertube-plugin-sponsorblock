@@ -1,103 +1,103 @@
-# Analyse technique : Suppression permanente des segments sponsors
+# Technical Analysis: Permanent Removal of Sponsor Segments
 
-**Date** : 2026-01-31
-**Objectif** : Analyser la faisabilité de modifier les fichiers vidéo à la source pour supprimer définitivement les segments sponsorisés détectés par SponsorBlock.
-
----
-
-## Table des matières
-
-1. [Architecture de stockage PeerTube](#architecture-de-stockage-peertube)
-2. [Système de transcodage](#système-de-transcodage)
-3. [Approche de suppression des segments](#approche-de-suppression-des-segments)
-4. [Implémentation FFmpeg](#implémentation-ffmpeg)
-5. [Gestion des jobs](#gestion-des-jobs)
-6. [Défis et risques](#défis-et-risques)
-7. [Recommandations](#recommandations)
+**Date**: 2026-01-31
+**Goal**: Analyze the feasibility of modifying video files at the source to permanently remove sponsor segments detected by SponsorBlock.
 
 ---
 
-## Architecture de stockage PeerTube
+## Table of Contents
 
-### Structure des répertoires
+1. [PeerTube Storage Architecture](#peertube-storage-architecture)
+2. [Transcoding System](#transcoding-system)
+3. [Segment Removal Approach](#segment-removal-approach)
+4. [FFmpeg Implementation](#ffmpeg-implementation)
+5. [Job Management](#job-management)
+6. [Challenges and Risks](#challenges-and-risks)
+7. [Recommendations](#recommendations)
 
-PeerTube stocke les vidéos dans `/var/www/peertube/storage/` avec plusieurs sous-dossiers :
+---
+
+## PeerTube Storage Architecture
+
+### Directory Structure
+
+PeerTube stores videos in `/var/www/peertube/storage/` with several subdirectories:
 
 ```
 /var/www/peertube/storage/
-├── tmp/                        # Téléchargements temporaires, uploads en cours
-├── tmp_persistent/             # Tmp persistant entre redémarrages
-├── original-video-files/       # Fichiers vidéo originaux uploadés
-├── web-videos/                 # Vidéos web (différentes résolutions)
-├── streaming-playlists/        # Playlists HLS pour streaming adaptatif
-│   └── hls/                    # Segments HLS
-├── redundancy/                 # Copies de redondance
-├── previews/                   # Miniatures vidéo
-├── avatars/                    # Avatars utilisateurs
+├── tmp/                        # Temporary downloads, uploads in progress
+├── tmp_persistent/             # Persistent tmp across restarts
+├── original-video-files/       # Original uploaded video files
+├── web-videos/                 # Web videos (different resolutions)
+├── streaming-playlists/        # HLS playlists for adaptive streaming
+│   └── hls/                    # HLS segments
+├── redundancy/                 # Redundancy copies
+├── previews/                   # Video thumbnails
+├── avatars/                    # User avatars
 └── logs/                       # Logs
 ```
 
-**Source** : [An Admin's Guide to Fixing PeerTube](https://wedistribute.org/2024/07/fixing-peertube-videos/)
+**Source**: [An Admin's Guide to Fixing PeerTube](https://wedistribute.org/2024/07/fixing-peertube-videos/)
 
-### Types de fichiers vidéo
+### Video File Types
 
-Pour chaque vidéo uploadée, PeerTube génère plusieurs versions :
+For each uploaded video, PeerTube generates several versions:
 
-1. **Fichier original** (`original-video-files/`)
-   - Fichier tel qu'uploadé par l'utilisateur
-   - Conservé pour archives ou re-transcodage ultérieur
+1. **Original file** (`original-video-files/`)
+   - File as uploaded by the user
+   - Kept for archiving or later re-transcoding
 
-2. **Vidéos web** (`web-videos/`)
-   - Versions transcodées en plusieurs résolutions (240p, 360p, 480p, 720p, 1080p, etc.)
-   - Format optimisé pour le streaming P2P WebTorrent
+2. **Web videos** (`web-videos/`)
+   - Versions transcoded in multiple resolutions (240p, 360p, 480p, 720p, 1080p, etc.)
+   - Format optimized for WebTorrent P2P streaming
 
-3. **Playlists HLS** (`streaming-playlists/hls/`)
-   - Segments vidéo pour streaming adaptatif
-   - Fichiers `.m3u8` (playlists) + segments `.ts` ou `.m4s`
+3. **HLS playlists** (`streaming-playlists/hls/`)
+   - Video segments for adaptive streaming
+   - `.m3u8` (playlists) + `.ts` or `.m4s` segments
 
-### Support du stockage objet
+### Object Storage Support
 
-PeerTube peut utiliser S3/MinIO pour le stockage distant :
+PeerTube can use S3/MinIO for remote storage:
 - `web_videos` prefix
 - `streaming_playlists` prefix
 - `original_video_files` prefix
 
-**Implication** : Le plugin doit gérer à la fois le stockage local et distant.
+**Implication**: The plugin must handle both local and remote storage.
 
-**Source** : [Remote storage (S3)](https://docs.joinpeertube.org/maintain/remote-storage)
+**Source**: [Remote storage (S3)](https://docs.joinpeertube.org/maintain/remote-storage)
 
 ---
 
-## Système de transcodage
+## Transcoding System
 
-### Architecture des jobs
+### Job Architecture
 
-PeerTube utilise **Bull** (basé sur Redis) pour gérer la file d'attente des jobs :
+PeerTube uses **Bull** (based on Redis) to manage the job queue:
 
 ```
-Utilisateur upload → Import job → Transcodage jobs → Vidéo disponible
-                                    ├─ Résolution 1 (480p)
-                                    ├─ Résolution 2 (720p)
-                                    └─ Résolution 3 (1080p)
+User upload → Import job → Transcoding jobs → Video available
+                               ├─ Resolution 1 (480p)
+                               ├─ Resolution 2 (720p)
+                               └─ Resolution 3 (1080p)
 ```
 
-**Flux de traitement** :
-1. Upload/import de la vidéo → stockage dans `original-video-files/`
-2. Job de transcodage créé dans la queue Redis
-3. Worker FFmpeg traite la vidéo
-4. Génération des résolutions dans `web-videos/` et/ou `streaming-playlists/`
-5. Mise à jour de la base de données avec les métadonnées
+**Processing flow**:
+1. Upload/import of the video → storage in `original-video-files/`
+2. Transcoding job created in the Redis queue
+3. FFmpeg worker processes the video
+4. Resolution generation in `web-videos/` and/or `streaming-playlists/`
+5. Database update with metadata
 
-**Source** : [Architecture | PeerTube documentation](https://docs.joinpeertube.org/contribute/architecture)
+**Source**: [Architecture | PeerTube documentation](https://docs.joinpeertube.org/contribute/architecture)
 
-### API de transcodage pour plugins
+### Transcoding API for Plugins
 
-Depuis PeerTube 3.1, les plugins peuvent modifier le transcodage via `transcodingManager` :
+Since PeerTube 3.1, plugins can modify transcoding via `transcodingManager`:
 
 ```javascript
 async function register ({ transcodingManager }) {
 
-  // Enregistrer un profil de transcodage personnalisé
+  // Register a custom transcoding profile
   const builder = (options) => {
     return {
       inputOptions: [],
@@ -116,128 +116,128 @@ async function register ({ transcodingManager }) {
 }
 ```
 
-**Limitations** :
-- Modifie le **profil de transcodage** (paramètres FFmpeg)
-- Ne permet pas d'injecter du code **avant** ou **après** le transcodage
-- Pas de hook pour intercepter/modifier les jobs existants
+**Limitations**:
+- Modifies the **transcoding profile** (FFmpeg parameters)
+- Does not allow injecting code **before** or **after** transcoding
+- No hook to intercept/modify existing jobs
 
-**Source** : [PeerTube 3.1 Is Released](https://linuxreviews.org/PeerTube_3.1_Is_Released_With_Advanced_Transcoding_Options_And_A_More_Polished_User-Interface)
+**Source**: [PeerTube 3.1 Is Released](https://linuxreviews.org/PeerTube_3.1_Is_Released_With_Advanced_Transcoding_Options_And_A_More_Polished_User-Interface)
 
-### Remote transcoding runners
+### Remote Transcoding Runners
 
-PeerTube supporte le transcodage distant :
-- Runners qui se connectent via HTTP/WebSocket
-- Jobs stockés en DB et assignés aux runners
-- Permet de décharger le serveur principal
+PeerTube supports remote transcoding:
+- Runners connect via HTTP/WebSocket
+- Jobs stored in DB and assigned to runners
+- Allows offloading the main server
 
-**Implication** : Si l'instance utilise des runners distants, le plugin doit pouvoir y accéder ou fonctionner après le transcodage.
+**Implication**: If the instance uses remote runners, the plugin must be able to access them or operate after transcoding.
 
-**Source** : [Support for transcoding by remote workers](https://github.com/Chocobozzz/PeerTube/issues/947)
+**Source**: [Support for transcoding by remote workers](https://github.com/Chocobozzz/PeerTube/issues/947)
 
 ---
 
-## Approche de suppression des segments
+## Segment Removal Approach
 
-### Option 1 : Modification post-import (avant transcodage)
+### Option 1: Post-import modification (before transcoding)
 
-**Moment** : Juste après l'import, avant le transcodage.
+**Timing**: Right after import, before transcoding.
 
-**Workflow** :
+**Workflow**:
 ```
-Import YouTube → Récupérer segments SponsorBlock → Modifier fichier original → Lancer transcodage
+YouTube Import → Fetch SponsorBlock segments → Modify original file → Start transcoding
 ```
 
-**Avantages** :
-- ✅ Une seule modification du fichier original
-- ✅ Toutes les résolutions générées seront déjà nettoyées
-- ✅ Économie de bande passante et stockage maximale
+**Advantages**:
+- Single modification of the original file
+- All generated resolutions will already be cleaned
+- Maximum bandwidth and storage savings
 
-**Inconvénients** :
-- ❌ Doit intercepter **avant** le transcodage (hook disponible ?)
-- ❌ Retarde la disponibilité de la vidéo
-- ❌ Complexe à synchroniser avec le système de jobs
+**Disadvantages**:
+- Must intercept **before** transcoding (hook available?)
+- Delays video availability
+- Complex to synchronize with the job system
 
-**Hook potentiel** :
+**Potential hook**:
 ```javascript
 registerHook({
   target: 'filter:api.video.post-import-url.accept.result',
   handler: async (result, params) => {
     const { videoImport } = params;
 
-    // 1. Récupérer segments SponsorBlock
-    // 2. Modifier le fichier original
-    // 3. Laisser le transcodage se faire normalement
+    // 1. Fetch SponsorBlock segments
+    // 2. Modify original file
+    // 3. Let transcoding proceed normally
 
     return result;
   }
 });
 ```
 
-### Option 2 : Modification post-transcodage
+### Option 2: Post-transcoding modification
 
-**Moment** : Après le transcodage, modifier toutes les versions générées.
+**Timing**: After transcoding, modify all generated versions.
 
-**Workflow** :
+**Workflow**:
 ```
-Import → Transcodage → Vidéo disponible → Récupérer segments → Re-traiter tous les fichiers
+Import → Transcoding → Video available → Fetch segments → Re-process all files
 ```
 
-**Avantages** :
-- ✅ Vidéo disponible rapidement (pas de blocage)
-- ✅ Peut fonctionner sur vidéos existantes
-- ✅ Plus facile à implémenter (async)
+**Advantages**:
+- Video available quickly (no blocking)
+- Can work on existing videos
+- Easier to implement (async)
 
-**Inconvénients** :
-- ❌ Doit traiter **toutes** les résolutions (480p, 720p, 1080p, etc.)
-- ❌ Consommation CPU importante (re-transcodage partiel)
-- ❌ Double stockage temporaire
+**Disadvantages**:
+- Must process **all** resolutions (480p, 720p, 1080p, etc.)
+- Significant CPU usage (partial re-transcoding)
+- Double temporary storage
 
-**Hook potentiel** :
+**Potential hook**:
 ```javascript
 registerHook({
   target: 'action:api.video.updated',
   handler: async ({ video }) => {
-    // Vérifier si le transcodage est terminé
+    // Check if transcoding is complete
     if (video.state === VideoState.PUBLISHED) {
-      // Lancer le traitement de suppression des segments
+      // Start segment removal processing
       await queueSegmentRemovalJob(video);
     }
   }
 });
 ```
 
-### Option 3 : Job de transcodage personnalisé
+### Option 3: Custom transcoding job
 
-**Moment** : Remplacer/compléter les jobs de transcodage standards.
+**Timing**: Replace/complement standard transcoding jobs.
 
-**Workflow** :
+**Workflow**:
 ```
-Import → Job de nettoyage SponsorBlock → Job de transcodage standard → Vidéo disponible
+Import → SponsorBlock cleanup job → Standard transcoding job → Video available
 ```
 
-**Avantages** :
-- ✅ Intégration native dans le pipeline de transcodage
-- ✅ Pas de re-traitement
-- ✅ Économie de ressources
+**Advantages**:
+- Native integration into the transcoding pipeline
+- No re-processing
+- Resource savings
 
-**Inconvénients** :
-- ❌ Nécessite accès aux internals de PeerTube (job queue)
-- ❌ Risque de breaking changes lors des mises à jour
-- ❌ Complexité élevée
+**Disadvantages**:
+- Requires access to PeerTube internals (job queue)
+- Risk of breaking changes on updates
+- High complexity
 
-**Faisabilité** : À explorer - les plugins peuvent-ils créer des jobs personnalisés ?
+**Feasibility**: To be explored — can plugins create custom jobs?
 
 ---
 
-## Implémentation FFmpeg
+## FFmpeg Implementation
 
-### Découpe et concaténation de segments
+### Segment Cutting and Concatenation
 
-Pour supprimer les segments sponsors, on doit :
-1. Découper la vidéo en segments (parties à garder)
-2. Concaténer ces segments
+To remove sponsor segments, we need to:
+1. Cut the video into segments (parts to keep)
+2. Concatenate these segments
 
-#### Méthode 1 : Filter complex (sans ré-encodage si possible)
+#### Method 1: Filter complex (without re-encoding if possible)
 
 ```bash
 ffmpeg -i input.mp4 \
@@ -252,52 +252,52 @@ ffmpeg -i input.mp4 \
   output.mp4
 ```
 
-**Avantages** :
-- Un seul passage FFmpeg
-- Synchronisation audio/vidéo préservée
+**Advantages**:
+- Single FFmpeg pass
+- Audio/video sync preserved
 
-**Inconvénients** :
-- ⚠️ **Ré-encodage obligatoire** (perte de qualité, temps CPU)
-- Les filtres `trim` et `concat` ne supportent pas la copie de stream
+**Disadvantages**:
+- **Re-encoding required** (quality loss, CPU time)
+- `trim` and `concat` filters do not support stream copy
 
-#### Méthode 2 : Découpe + concaténation avec copy codec (sans ré-encodage)
+#### Method 2: Cut + concatenation with copy codec (no re-encoding)
 
-**Étape 1** : Découper les segments à garder
+**Step 1**: Cut the segments to keep
 ```bash
-# Segment 1 : 0s - 30s
+# Segment 1: 0s - 30s
 ffmpeg -i input.mp4 -ss 0 -to 30 -c copy segment1.mp4
 
-# Segment 2 : 60s - 120s (après un sponsor de 30s-60s)
+# Segment 2: 60s - 120s (after a 30s-60s sponsor)
 ffmpeg -i input.mp4 -ss 60 -to 120 -c copy segment2.mp4
 ```
 
-**Étape 2** : Créer un fichier de concaténation
+**Step 2**: Create a concat file
 ```
 # concat.txt
 file 'segment1.mp4'
 file 'segment2.mp4'
 ```
 
-**Étape 3** : Concaténer
+**Step 3**: Concatenate
 ```bash
 ffmpeg -f concat -safe 0 -i concat.txt -c copy output.mp4
 ```
 
-**Avantages** :
-- ✅ Pas de ré-encodage (très rapide)
-- ✅ Pas de perte de qualité
-- ✅ Consommation CPU minimale
+**Advantages**:
+- No re-encoding (very fast)
+- No quality loss
+- Minimal CPU usage
 
-**Inconvénients** :
-- ❌ Nécessite des coupures aux **keyframes** exactes
-- ❌ Peut avoir des problèmes de synchronisation A/V si les coupures ne sont pas précises
-- ❌ Fichiers temporaires (segments)
+**Disadvantages**:
+- Requires cuts at exact **keyframes**
+- May have A/V sync issues if cuts are imprecise
+- Temporary files (segments)
 
-**Solution hybrid** : Couper aux keyframes proches + ré-encoder seulement les transitions
+**Hybrid solution**: Cut at nearest keyframes + re-encode only transitions
 
-#### Méthode 3 : Re-multiplexing avec segment removal (expérimental)
+#### Method 3: Re-multiplexing with segment removal (experimental)
 
-Utiliser `ffmpeg` avec `select` filter pour les frames :
+Using `ffmpeg` with `select` filter for frames:
 
 ```bash
 ffmpeg -i input.mp4 \
@@ -307,31 +307,31 @@ ffmpeg -i input.mp4 \
   output.mp4
 ```
 
-**Avantages** :
-- Un seul passage
-- Précision frame par frame
+**Advantages**:
+- Single pass
+- Frame-by-frame precision
 
-**Inconvénients** :
-- ⚠️ **Ré-encodage obligatoire**
-- Complexe à générer pour multiples segments
+**Disadvantages**:
+- **Re-encoding required**
+- Complex to generate for multiple segments
 
-### Code de génération du filtre FFmpeg
+### FFmpeg Filter Generation Code
 
 ```javascript
 /**
- * Construit une commande FFmpeg pour supprimer des segments d'une vidéo
- * @param {string} inputPath - Chemin du fichier d'entrée
- * @param {Array} segments - Segments à supprimer [{start: 30, end: 60}, ...]
- * @param {number} duration - Durée totale de la vidéo en secondes
- * @param {string} outputPath - Chemin du fichier de sortie
- * @returns {Array} Arguments FFmpeg
+ * Build an FFmpeg command to remove segments from a video
+ * @param {string} inputPath - Input file path
+ * @param {Array} segments - Segments to remove [{start: 30, end: 60}, ...]
+ * @param {number} duration - Total video duration in seconds
+ * @param {string} outputPath - Output file path
+ * @returns {Array} FFmpeg arguments
  */
 function buildFFmpegRemovalCommand(inputPath, segments, duration, outputPath) {
-  // Tri des segments par ordre chronologique
+  // Sort segments chronologically
   const sortedSegments = segments
     .sort((a, b) => a.start - b.start);
 
-  // Calculer les segments à GARDER (inversion)
+  // Compute segments to KEEP (inversion)
   const keepSegments = [];
   let lastEnd = 0;
 
@@ -345,7 +345,7 @@ function buildFFmpegRemovalCommand(inputPath, segments, duration, outputPath) {
     lastEnd = Math.max(lastEnd, segment.end);
   }
 
-  // Ajouter le dernier segment jusqu'à la fin
+  // Add the last segment to the end
   if (lastEnd < duration) {
     keepSegments.push({
       start: lastEnd,
@@ -353,23 +353,23 @@ function buildFFmpegRemovalCommand(inputPath, segments, duration, outputPath) {
     });
   }
 
-  // Si aucun segment à garder, erreur
+  // If no segments to keep, error
   if (keepSegments.length === 0) {
     throw new Error('No segments to keep - video would be empty');
   }
 
-  // Méthode 1 : Découpe + concat (sans ré-encodage)
+  // Method 1: Cut + concat (no re-encoding)
   return buildSegmentedApproach(inputPath, keepSegments, outputPath);
 }
 
 /**
- * Approche découpe + concaténation (sans ré-encodage)
+ * Cut + concatenation approach (no re-encoding)
  */
 function buildSegmentedApproach(inputPath, keepSegments, outputPath) {
   const segmentFiles = [];
   const commands = [];
 
-  // Étape 1 : Découper chaque segment
+  // Step 1: Cut each segment
   keepSegments.forEach((seg, index) => {
     const segmentPath = `/tmp/segment_${index}.mp4`;
     segmentFiles.push(segmentPath);
@@ -387,13 +387,13 @@ function buildSegmentedApproach(inputPath, keepSegments, outputPath) {
     });
   });
 
-  // Étape 2 : Créer le fichier concat
+  // Step 2: Create the concat file
   const concatFilePath = '/tmp/concat_list.txt';
   const concatContent = segmentFiles
     .map(f => `file '${f}'`)
     .join('\n');
 
-  // Étape 3 : Concaténer
+  // Step 3: Concatenate
   commands.push({
     args: [
       '-f', 'concat',
@@ -414,13 +414,13 @@ function buildSegmentedApproach(inputPath, keepSegments, outputPath) {
 }
 
 /**
- * Approche filter complex (avec ré-encodage)
- * À utiliser si la méthode sans ré-encodage échoue
+ * Filter complex approach (with re-encoding)
+ * Use if the no-re-encoding method fails
  */
 function buildFilterComplexApproach(inputPath, keepSegments, outputPath) {
   const filters = [];
 
-  // Créer les filtres trim pour chaque segment
+  // Create trim filters for each segment
   keepSegments.forEach((seg, index) => {
     filters.push(
       `[0:v]trim=start=${seg.start}:end=${seg.end},setpts=PTS-STARTPTS[v${index}]`,
@@ -428,7 +428,7 @@ function buildFilterComplexApproach(inputPath, keepSegments, outputPath) {
     );
   });
 
-  // Construire la concaténation
+  // Build concatenation
   const vInputs = keepSegments.map((_, i) => `[v${i}]`).join('');
   const aInputs = keepSegments.map((_, i) => `[a${i}]`).join('');
 
@@ -457,23 +457,23 @@ function buildFilterComplexApproach(inputPath, keepSegments, outputPath) {
 }
 ```
 
-### Gestion des multiples résolutions
+### Multi-Resolution Handling
 
-Chaque vidéo a plusieurs fichiers (résolutions différentes). Il faut **tous** les traiter :
+Each video has multiple files (different resolutions). **All** need processing:
 
 ```javascript
 async function processAllVideoFiles(videoUuid, segments) {
   const video = await peertubeHelpers.videos.loadByUrl(videoUuid);
 
-  // Récupérer tous les fichiers vidéo
+  // Get all video files
   const videoFiles = await getVideoFiles(video);
 
-  // Traiter chaque résolution
+  // Process each resolution
   for (const file of videoFiles) {
     const inputPath = file.path;
     const outputPath = `${inputPath}.processed`;
 
-    // Générer la commande FFmpeg
+    // Generate the FFmpeg command
     const commands = buildFFmpegRemovalCommand(
       inputPath,
       segments,
@@ -481,22 +481,22 @@ async function processAllVideoFiles(videoUuid, segments) {
       outputPath
     );
 
-    // Exécuter FFmpeg
+    // Execute FFmpeg
     await executeFFmpegCommands(commands);
 
-    // Remplacer le fichier original
+    // Replace original file
     await replaceFile(inputPath, outputPath);
   }
 
-  // Mettre à jour la durée de la vidéo
+  // Update video duration
   const newDuration = calculateNewDuration(video.duration, segments);
   await updateVideoDuration(video, newDuration);
 }
 ```
 
-### Gestion des playlists HLS
+### HLS Playlist Handling
 
-Les playlists HLS sont composées de **multiples segments** `.ts` ou `.m4s` :
+HLS playlists are composed of **multiple segments** `.ts` or `.m4s`:
 
 ```
 playlist.m3u8
@@ -506,24 +506,24 @@ segment-2.ts
 ...
 ```
 
-**Problème** : Supprimer des segments sponsors dans une playlist HLS est **très complexe** :
-- Les segments ont des durées fixes (ex: 2s, 4s, 6s)
-- Il faut recalculer les timestamps de tous les segments
-- Modifier le fichier `.m3u8`
+**Problem**: Removing sponsor segments from an HLS playlist is **very complex**:
+- Segments have fixed durations (e.g., 2s, 4s, 6s)
+- All segment timestamps need recalculation
+- The `.m3u8` file must be modified
 
-**Solution recommandée** :
-1. **Option A** : Ne traiter que les `web-videos` (pas HLS)
-2. **Option B** : Forcer un re-transcodage complet en HLS après modification
-3. **Option C** : Désactiver HLS pour les vidéos traitées
+**Recommended solution**:
+1. **Option A**: Process only `web-videos` (not HLS)
+2. **Option B**: Force a full HLS re-transcode after modification
+3. **Option C**: Disable HLS for processed videos
 
 ---
 
-## Gestion des jobs
+## Job Management
 
-### Architecture de file d'attente
+### Queue Architecture
 
 ```javascript
-// Table pour suivre les jobs de traitement
+// Table to track processing jobs
 CREATE TABLE IF NOT EXISTS plugin_sponsorblock_processing_queue (
   id SERIAL PRIMARY KEY,
   video_uuid UUID NOT NULL REFERENCES video(uuid) ON DELETE CASCADE,
@@ -543,7 +543,7 @@ CREATE TABLE IF NOT EXISTS plugin_sponsorblock_processing_queue (
 CREATE INDEX idx_queue_status ON plugin_sponsorblock_processing_queue(status, priority, created_at);
 ```
 
-### Worker de traitement
+### Processing Worker
 
 ```javascript
 let isProcessing = false;
@@ -557,9 +557,9 @@ async function startWorker(peertubeHelpers) {
     } catch (error) {
       peertubeHelpers.logger.error('Worker error', error);
     }
-  }, 5000); // Toutes les 5 secondes
+  }, 5000); // Every 5 seconds
 
-  // Cleanup au unload du plugin
+  // Cleanup on plugin unload
   peertubeHelpers.onUnload(() => {
     clearInterval(interval);
   });
@@ -568,7 +568,7 @@ async function startWorker(peertubeHelpers) {
 async function processNextJob(peertubeHelpers) {
   const database = peertubeHelpers.database;
 
-  // Verrouillage optimiste avec FOR UPDATE SKIP LOCKED
+  // Optimistic locking with FOR UPDATE SKIP LOCKED
   const [jobs] = await database.query(`
     UPDATE plugin_sponsorblock_processing_queue
     SET status = 'processing', started_at = NOW()
@@ -583,21 +583,21 @@ async function processNextJob(peertubeHelpers) {
   `);
 
   if (!jobs || jobs.length === 0) {
-    return; // Aucun job en attente
+    return; // No pending jobs
   }
 
   const job = jobs[0];
   isProcessing = true;
 
   try {
-    // Traiter la vidéo
+    // Process the video
     await processVideoRemoveSegments(
       job.video_uuid,
       job.segments,
       peertubeHelpers
     );
 
-    // Marquer comme terminé
+    // Mark as completed
     await database.query(`
       UPDATE plugin_sponsorblock_processing_queue
       SET status = 'completed', completed_at = NOW()
@@ -640,11 +640,11 @@ async function processNextJob(peertubeHelpers) {
 }
 ```
 
-### Priorisation des jobs
+### Job Prioritization
 
-- **Priorité haute** : Vidéos récentes (< 24h)
-- **Priorité normale** : Vidéos anciennes
-- **Priorité basse** : Re-traitement (mise à jour des segments)
+- **High priority**: Recent videos (< 24h)
+- **Normal priority**: Older videos
+- **Low priority**: Re-processing (segment updates)
 
 ```javascript
 async function queueVideoProcessing(videoUuid, youtubeId, segments, priority = 0) {
@@ -658,35 +658,35 @@ async function queueVideoProcessing(videoUuid, youtubeId, segments, priority = 0
 
 ---
 
-## Défis et risques
+## Challenges and Risks
 
-### 1. Accès au système de fichiers
+### 1. Filesystem Access
 
-**Problème** : Les plugins ont-ils un accès direct aux fichiers vidéo ?
+**Problem**: Do plugins have direct access to video files?
 
-**Recherche nécessaire** :
-- Tester si `peertubeHelpers` expose les chemins de fichiers
-- Vérifier les permissions (le processus du plugin peut-il lire/écrire ?)
-- Voir si PeerTube sandbox les plugins
+**Investigation needed**:
+- Test if `peertubeHelpers` exposes file paths
+- Verify permissions (can the plugin process read/write?)
+- Check if PeerTube sandboxes plugins
 
-**Workaround potentiel** :
-- Utiliser l'API interne de PeerTube pour charger les vidéos
-- Forcer un re-transcodage via l'API plutôt qu'un traitement direct
+**Potential workaround**:
+- Use PeerTube's internal API to load videos
+- Force a re-transcode via the API rather than direct processing
 
-### 2. Atomicité et cohérence
+### 2. Atomicity and Consistency
 
-**Problème** : Que se passe-t-il si le traitement échoue à mi-chemin ?
+**Problem**: What happens if processing fails midway?
 
-**Risques** :
-- Fichier vidéo corrompu
-- Vidéo partiellement traitée (certaines résolutions oui, d'autres non)
-- Métadonnées incohérentes (durée incorrecte)
+**Risks**:
+- Corrupted video file
+- Partially processed video (some resolutions yes, others no)
+- Inconsistent metadata (incorrect duration)
 
-**Solutions** :
-- ✅ Traiter dans un fichier temporaire, swap atomique à la fin
-- ✅ Transaction sur les métadonnées DB
-- ✅ Backup automatique du fichier original
-- ✅ Rollback en cas d'erreur
+**Solutions**:
+- Process to a temp file, atomic swap at the end
+- Transaction on DB metadata
+- Automatic backup of the original file
+- Rollback on error
 
 ```javascript
 async function processVideoSafe(videoPath, segments) {
@@ -697,19 +697,19 @@ async function processVideoSafe(videoPath, segments) {
     // 1. Backup
     await fs.copyFile(videoPath, backupPath);
 
-    // 2. Traitement
+    // 2. Process
     await processVideo(videoPath, segments, tempPath);
 
-    // 3. Vérification
+    // 3. Verify
     const isValid = await verifyVideoIntegrity(tempPath);
     if (!isValid) {
       throw new Error('Processed video is corrupted');
     }
 
-    // 4. Swap atomique
+    // 4. Atomic swap
     await fs.rename(tempPath, videoPath);
 
-    // 5. Supprimer le backup (optionnel)
+    // 5. Remove backup (optional)
     await fs.unlink(backupPath);
 
   } catch (error) {
@@ -722,98 +722,98 @@ async function processVideoSafe(videoPath, segments) {
 }
 ```
 
-### 3. Performance et charge système
+### 3. Performance and System Load
 
-**Problème** : FFmpeg consomme beaucoup de CPU/mémoire.
+**Problem**: FFmpeg is CPU/memory-intensive.
 
-**Impacts** :
-- Ralentissement du serveur
-- File d'attente qui s'accumule
-- Timeout des jobs
+**Impacts**:
+- Server slowdown
+- Queue buildup
+- Job timeouts
 
-**Solutions** :
-- ✅ Limiter le nombre de jobs concurrents (ex: 1 seul à la fois)
-- ✅ Nice/ionice pour baisser la priorité
-- ✅ Traitement pendant les heures creuses
-- ✅ Option pour désactiver le traitement automatique
+**Solutions**:
+- Limit concurrent jobs (e.g., 1 at a time)
+- Nice/ionice to lower priority
+- Process during off-peak hours
+- Option to disable automatic processing
 
 ```javascript
-// Configuration du plugin
+// Plugin configuration
 {
   "enable_auto_processing": true,
   "max_concurrent_jobs": 1,
-  "processing_hours": "02:00-06:00", // Heures creuses
+  "processing_hours": "02:00-06:00", // Off-peak hours
   "cpu_priority": "low" // nice level
 }
 ```
 
-### 4. Perte de qualité
+### 4. Quality Loss
 
-**Problème** : Le ré-encodage peut dégrader la qualité.
+**Problem**: Re-encoding can degrade quality.
 
-**Solutions** :
-- ✅ Préférer `-c copy` (sans ré-encodage)
-- ✅ Si ré-encodage nécessaire, utiliser CRF élevé (18-23)
-- ✅ Conserver le fichier original en backup
+**Solutions**:
+- Prefer `-c copy` (no re-encoding)
+- If re-encoding is needed, use high CRF (18-23)
+- Keep the original file as backup
 
-**Comparaison** :
-- **Sans ré-encodage** : Rapide, sans perte, mais coupures aux keyframes uniquement
-- **Avec ré-encodage** : Précis, mais lent et perte de qualité potentielle
+**Comparison**:
+- **No re-encoding**: Fast, lossless, but cuts only at keyframes
+- **With re-encoding**: Precise, but slow and potential quality loss
 
-### 5. Stockage distant (S3)
+### 5. Remote Storage (S3)
 
-**Problème** : Les fichiers peuvent être sur S3/MinIO, pas en local.
+**Problem**: Files may be on S3/MinIO, not local.
 
-**Solutions** :
-- ✅ Télécharger temporairement en local
-- ✅ Traiter
-- ✅ Re-upload vers S3
-- ❌ Consommation de bande passante importante
+**Solutions**:
+- Temporarily download locally
+- Process
+- Re-upload to S3
+- Significant bandwidth usage
 
-**Alternative** : Ne supporter que le stockage local (limitation documentée).
+**Alternative**: Only support local storage (documented limitation).
 
-### 6. Synchronisation des métadonnées
+### 6. Metadata Synchronization
 
-**Problème** : Durée de la vidéo, seeking, thumbnails.
+**Problem**: Video duration, seeking, thumbnails.
 
-**Impacts** :
-- La durée affichée ne correspond plus
-- Les miniatures peuvent pointer vers des moments supprimés
-- Les timestamps de commentaires sont décalés
+**Impacts**:
+- Displayed duration no longer matches
+- Thumbnails may point to removed moments
+- Comment timestamps are shifted
 
-**Solutions** :
-- ✅ Recalculer la durée totale
-- ✅ Régénérer les thumbnails
-- ⚠️ Impossible de corriger les timestamps de commentaires existants
+**Solutions**:
+- Recalculate total duration
+- Regenerate thumbnails
+- Impossible to correct existing comment timestamps
 
-### 7. Contenu décalé
+### 7. Shifted Content
 
-**Problème** : Si un utilisateur commente "à 5:23", mais qu'on a supprimé 2min avant, le timestamp est faux.
+**Problem**: If a user comments "at 5:23", but 2min were removed before, the timestamp is wrong.
 
-**Solution** : Documenter cette limitation - c'est un trade-off accepté.
+**Solution**: Document this limitation — it's an accepted trade-off.
 
 ---
 
-## Recommandations
+## Recommendations
 
-### Approche recommandée
+### Recommended Approach
 
-**Phase 1** : Implémenter l'approche **skip côté client** (RESEARCH.md - Approche 1)
-- Rapide à développer
-- Sans risque
-- Valide le concept
+**Phase 1**: Implement the **client-side skip** approach (RESEARCH.md — Approach 1)
+- Quick to develop
+- No risk
+- Validates the concept
 
-**Phase 2** : Ajouter la suppression permanente **optionnelle**
-- Option dans les paramètres du plugin
-- Par défaut : désactivée
-- Warning clair sur les risques
+**Phase 2**: Add **optional** permanent removal
+- Option in plugin settings
+- Default: disabled
+- Clear warning about risks
 
-**Phase 3** : Affiner selon les retours
-- Optimisations FFmpeg
-- Support du stockage distant
-- Interface de monitoring
+**Phase 3**: Refine based on feedback
+- FFmpeg optimizations
+- Remote storage support
+- Monitoring interface
 
-### Configuration suggérée
+### Suggested Configuration
 
 ```json
 {
@@ -824,53 +824,53 @@ async function processVideoSafe(videoPath, segments) {
   "max_concurrent_jobs": 1,
   "require_confirmation": true,
   "categories_to_remove": ["sponsor", "selfpromo"],
-  "minimum_segment_duration": 5,  // Ne supprimer que si > 5s
+  "minimum_segment_duration": 5,  // Only remove if > 5s
   "ffmpeg_method": "auto"  // "copy" | "reencode" | "auto"
 }
 ```
 
-### Tests essentiels avant production
+### Essential Tests Before Production
 
-1. **Test sur vidéo de test** : Créer une vidéo avec segments connus
-2. **Test de rollback** : Simuler une erreur, vérifier la restauration
-3. **Test de performance** : Mesurer CPU/mémoire/temps
-4. **Test multi-résolutions** : Vérifier que toutes les versions sont cohérentes
-5. **Test de lecture** : S'assurer que la vidéo se lit correctement après traitement
+1. **Test video**: Create a video with known segments
+2. **Rollback test**: Simulate an error, verify restoration
+3. **Performance test**: Measure CPU/memory/time
+4. **Multi-resolution test**: Verify all versions are consistent
+5. **Playback test**: Ensure the video plays correctly after processing
 
-### Documentation utilisateur
+### User Documentation
 
-Informer clairement les administrateurs :
+Clearly inform administrators:
 
 ```markdown
-⚠️ **Mode de suppression permanente**
+**Permanent Removal Mode**
 
-Ce mode modifie les fichiers vidéo originaux pour supprimer définitivement
-les segments sponsorisés.
+This mode modifies the original video files to permanently remove
+sponsor segments.
 
-**Avantages** :
-- Économie de stockage et bande passante
-- Expérience optimale pour tous les clients
+**Advantages**:
+- Storage and bandwidth savings
+- Optimal experience for all clients
 
-**Risques** :
-- Modification irréversible (sauf si backup activé)
-- Charge CPU importante
-- Timestamps de commentaires décalés
-- Peut causer des problèmes en cas d'erreur
+**Risks**:
+- Irreversible modification (unless backup enabled)
+- Significant CPU load
+- Comment timestamps shifted
+- May cause issues on error
 
-**Recommandations** :
-- Activez les backups automatiques
-- Testez d'abord sur quelques vidéos
-- Surveillez les logs et la charge système
-- Ayez un plan de restauration
+**Recommendations**:
+- Enable automatic backups
+- Test on a few videos first
+- Monitor logs and system load
+- Have a recovery plan
 
-Pour la plupart des usages, le mode "skip" (saut côté client) est suffisant.
+For most use cases, "skip" mode (client-side skip) is sufficient.
 ```
 
 ---
 
-## Ressources complémentaires
+## Additional Resources
 
-### Documentation PeerTube
+### PeerTube Documentation
 
 - [Architecture | PeerTube](https://docs.joinpeertube.org/contribute/architecture)
 - [CLI tools guide](https://docs.joinpeertube.org/maintain/tools)
@@ -892,18 +892,18 @@ Pour la plupart des usages, le mode "skip" (saut côté client) est suffisant.
 
 ## Conclusion
 
-La suppression permanente des segments sponsors est **techniquement faisable** mais présente des **défis significatifs** :
+Permanent removal of sponsor segments is **technically feasible** but presents **significant challenges**:
 
-✅ **Faisable** :
-- Accès à la base de données
-- Exécution de FFmpeg
-- Gestion de jobs async
-- Hooks pour intercepter les imports
+**Feasible**:
+- Database access
+- FFmpeg execution
+- Async job management
+- Hooks to intercept imports
 
-❌ **Challenges** :
-- Accès aux fichiers (à confirmer)
-- Performance (charge CPU)
-- Risques de corruption
-- Gestion du stockage distant
+**Challenges**:
+- File access (to be confirmed)
+- Performance (CPU load)
+- Corruption risks
+- Remote storage handling
 
-🎯 **Recommandation** : Commencer par l'approche skip (côté client), puis ajouter la suppression permanente comme fonctionnalité **optionnelle et avancée** avec warnings appropriés.
+**Recommendation**: Start with the skip approach (client-side), then add permanent removal as an **optional, advanced feature** with appropriate warnings.

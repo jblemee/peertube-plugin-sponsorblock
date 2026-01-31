@@ -33,5 +33,45 @@
   "process-no-segments": "Aucun segment à traiter pour cette vidéo.",
   "process-no-mapping": "Aucune correspondance YouTube trouvée pour cette vidéo.",
   "process-all-queued": "{count} vidéo(s) mise(s) en file d'attente.",
-  "process-error": "Une erreur est survenue lors de la mise en file d'attente."
+  "process-error": "Une erreur est survenue lors de la mise en file d'attente.",
+
+  "sync-interval": "Intervalle de synchronisation périodique (heures)",
+  "sync-interval-description": "Re-télécharger automatiquement les segments pour toutes les vidéos liées à cet intervalle. 0 pour désactiver.",
+
+  "admin-stats-mapped": "Vidéos liées",
+  "admin-stats-segments": "Segments totaux",
+  "admin-stats-time-saved": "Temps économisé",
+  "admin-stats-queue": "File d'attente",
+
+  "admin-btn-scan": "Scanner les imports",
+  "admin-btn-sync-all": "Tout synchroniser",
+  "admin-btn-process-all": "Tout traiter",
+
+  "admin-table-uuid": "UUID vidéo",
+  "admin-table-youtube": "ID YouTube",
+  "admin-table-segments": "Segments",
+  "admin-table-saved": "Temps économisé",
+  "admin-table-synced": "Dernière sync",
+  "admin-table-queue": "File",
+  "admin-table-actions": "Actions",
+
+  "admin-action-sync": "Sync",
+  "admin-action-process": "Traiter",
+  "admin-action-delete": "Supprimer",
+
+  "admin-scan-started": "Scan des imports en cours…",
+  "admin-scan-result": "{scanned} scannés, {mapped} nouvelle(s) vidéo(s) liée(s).",
+  "admin-sync-started": "Synchronisation de toutes les liaisons ({total})…",
+  "admin-process-result": "{queued} vidéo(s) mise(s) en file de traitement.",
+  "admin-delete-confirm": "Supprimer la liaison pour cette vidéo ?",
+  "admin-delete-success": "Liaison supprimée.",
+  "admin-no-mappings": "Aucune liaison. Utilisez Scanner les imports ou liez des vidéos manuellement.",
+
+  "admin-queue-pending": "En attente",
+  "admin-queue-processing": "En cours",
+  "admin-queue-done": "Terminé",
+  "admin-queue-error": "Erreur",
+
+  "admin-last-sync-never": "Jamais",
+  "admin-last-sync-ago": "Il y a {time}"
 }

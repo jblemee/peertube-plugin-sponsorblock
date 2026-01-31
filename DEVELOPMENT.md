@@ -1,116 +1,117 @@
-# Guide de développement
+# Development Guide
 
-Ce document explique comment développer et tester le plugin PeerTube SponsorBlock.
+This document explains how to develop and test the PeerTube SponsorBlock plugin.
 
-## Prérequis
+## Prerequisites
 
 - Node.js >= 16
-- Une instance PeerTube de développement (>= 6.0.0)
-- PostgreSQL (utilisé par PeerTube)
-- FFmpeg et ffprobe (requis pour le mode suppression permanente)
+- A development PeerTube instance (>= 6.0.0)
+- PostgreSQL (used by PeerTube)
+- FFmpeg and ffprobe (required for permanent removal mode)
 
-## Installation pour le développement
+## Development Setup
 
-### 1. Cloner le projet
+### 1. Clone the project
 
 ```bash
 git clone https://github.com/jblemee/peertube-plugin-sponsorblock.git
 cd peertube-plugin-sponsorblock
 ```
 
-### 2. Installer les dépendances
+### 2. Install dependencies
 
 ```bash
 npm install
 ```
 
-### 3. Lier le plugin à votre instance PeerTube
+### 3. Link the plugin to your PeerTube instance
 
-#### Option A : Installation depuis le répertoire local
+#### Option A: Install from local directory
 
 ```bash
-# Depuis le répertoire de PeerTube
+# From the PeerTube directory
 cd /var/www/peertube
 
-# Installer le plugin
+# Install the plugin
 sudo -u peertube NODE_CONFIG_DIR=/var/www/peertube/config NODE_ENV=production npm run plugin:install -- --plugin-path /path/to/peertube-plugin-sponsorblock
 ```
 
-#### Option B : Symlink pour développement rapide
+#### Option B: Symlink for rapid development
 
 ```bash
-# Créer un lien symbolique dans le dossier plugins de PeerTube
+# Create a symlink in the PeerTube plugins directory
 ln -s /path/to/peertube-plugin-sponsorblock /var/www/peertube/storage/plugins/node_modules/peertube-plugin-sponsorblock
 
-# Redémarrer PeerTube
+# Restart PeerTube
 sudo systemctl restart peertube
 ```
 
-### 4. Activer le plugin
+### 4. Enable the plugin
 
-1. Aller dans l'interface d'administration PeerTube
-2. Naviguer vers **Administration** > **Plugins/Themes**
-3. Activer le plugin **SponsorBlock**
-4. Configurer les paramètres selon vos besoins
+1. Go to the PeerTube admin interface
+2. Navigate to **Administration** > **Plugins/Themes**
+3. Enable the **SponsorBlock** plugin
+4. Configure the settings as needed
 
-## Structure du projet
+## Project Structure
 
 ```
 peertube-plugin-sponsorblock/
-├── main.js                 # Point d'entrée serveur (settings, hooks, worker)
-├── package.json            # Métadonnées du plugin
-├── client/                 # Code client (navigateur)
-│   ├── common.js           # Code commun
-│   └── video-watch.js      # Lecteur vidéo (skip logic)
-├── server/                 # Code serveur
-│   ├── routes.js           # API REST (segments, mapping, scan, sync, process)
-│   └── ffmpeg.js           # Wrapper FFmpeg/ffprobe (découpe, concat, file discovery)
-├── assets/                 # Ressources statiques
-│   ├── style.css           # Styles CSS
+├── main.js                 # Server entry point (settings, hooks, worker, sync timer)
+├── package.json            # Plugin metadata
+├── client/                 # Client-side code (browser)
+│   ├── common.js           # Common code
+│   ├── video-watch.js      # Video player (skip logic)
+│   └── admin.js            # Admin dashboard (admin-plugin scope)
+├── server/                 # Server-side code
+│   ├── routes.js           # REST API (segments, mapping, scan, sync, process, admin)
+│   └── ffmpeg.js           # FFmpeg/ffprobe wrapper (cut, concat, file discovery)
+├── assets/                 # Static resources
+│   ├── style.css           # CSS styles
 │   └── images/             # Images
-├── languages/              # Traductions
-│   ├── en.json             # Anglais
-│   └── fr.json             # Français
-└── scripts/                # Scripts de build
+├── languages/              # Translations
+│   ├── en.json             # English
+│   └── fr.json             # French
+└── scripts/                # Build scripts
 ```
 
 ## Architecture
 
-### Flux de données
+### Data Flow
 
 ```
-Import YouTube → Hook post-import → Extraction YouTube ID → API SponsorBlock
-                                                           ↓
-                                                    Cache en DB
-                                                     ↓            ↓
-                              (mode remove)     (mode skip)
-                              Queue processing  Client skip
-                                    ↓                  ↓
-                              Worker (30s)    API /segments/:uuid → Skip automatique
-                                    ↓
-                              FFmpeg cut + concat → Remplacement fichier
+YouTube Import → Post-import hook → YouTube ID extraction → SponsorBlock API
+                                                            ↓
+                                                     Cache in DB
+                                                      ↓            ↓
+                               (remove mode)     (skip mode)
+                               Queue processing  Client skip
+                                     ↓                  ↓
+                               Worker (30s)    API /segments/:uuid → Automatic skip
+                                     ↓
+                               FFmpeg cut + concat → File replacement
 ```
 
-### Tables de base de données
+### Database Tables
 
-Le plugin crée 3 tables :
+The plugin creates 3 tables:
 
-1. **`plugin_sponsorblock_mapping`** : Mapping YouTube ID ↔ PeerTube UUID
-2. **`plugin_sponsorblock_segments`** : Cache des segments SponsorBlock
-3. **`plugin_sponsorblock_processing_queue`** : File d'attente pour le mode "remove"
+1. **`plugin_sponsorblock_mapping`**: YouTube ID to PeerTube UUID mapping
+2. **`plugin_sponsorblock_segments`**: SponsorBlock segments cache
+3. **`plugin_sponsorblock_processing_queue`**: Queue for "remove" mode
 
-## Tester le plugin
+## Testing the Plugin
 
-### 1. Importer une vidéo YouTube
+### 1. Import a YouTube video
 
 ```bash
-# Via l'interface web ou CLI
+# Via the web interface or CLI
 cd /var/www/peertube
 sudo -u peertube NODE_CONFIG_DIR=/var/www/peertube/config NODE_ENV=production npm run import-videos -- \
   --target-url "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
-### 2. Vérifier le mapping en base de données
+### 2. Verify the database mapping
 
 ```bash
 sudo -u postgres psql peertube_prod
@@ -119,113 +120,125 @@ SELECT * FROM plugin_sponsorblock_mapping;
 SELECT * FROM plugin_sponsorblock_segments;
 ```
 
-### 3. Tester le skip dans le lecteur
+### 3. Test skipping in the player
 
-1. Ouvrir la vidéo importée
-2. Observer les marqueurs verts sur la barre de progression
-3. Laisser la vidéo jouer : les segments devraient être sautés automatiquement
-4. Une notification devrait s'afficher à chaque saut
+1. Open the imported video
+2. Observe the colored markers on the progress bar
+3. Let the video play: segments should be skipped automatically
+4. A notification should appear on each skip
 
-### 4. Tester l'API
+### 4. Test the API
 
 ```bash
 BASE=http://localhost:9000/plugins/sponsorblock/router
 
-# Récupérer les segments d'une vidéo
+# Fetch segments for a video
 curl $BASE/segments/{VIDEO_UUID}
 
-# Récupérer le mapping YouTube
+# Fetch the YouTube mapping
 curl $BASE/mapping/{VIDEO_UUID}
 
-# Forcer une synchronisation
+# Force a sync
 curl -X POST $BASE/sync/{VIDEO_UUID}
 
-# Lancer le traitement FFmpeg d'une vidéo (admin auth requis)
+# Queue a video for FFmpeg processing (admin auth required)
 curl -X POST $BASE/process/{VIDEO_UUID} -H "Authorization: Bearer TOKEN"
 
-# Lancer le traitement de toutes les vidéos non traitées (admin auth requis)
+# Queue all unprocessed videos (admin auth required)
 curl -X POST $BASE/process-all -H "Authorization: Bearer TOKEN"
+
+# Get admin dashboard stats (admin auth required)
+curl $BASE/admin/stats -H "Authorization: Bearer TOKEN"
+
+# Get all mappings with details (admin auth required)
+curl $BASE/admin/mappings -H "Authorization: Bearer TOKEN"
+
+# Sync all mappings (admin auth required)
+curl -X POST $BASE/sync-all -H "Authorization: Bearer TOKEN"
+
+# Delete a mapping (admin auth required)
+curl -X DELETE $BASE/mapping/{VIDEO_UUID} -H "Authorization: Bearer TOKEN"
 ```
 
-### 5. Tester le mode suppression permanente
+### 5. Test permanent removal mode
 
-1. Configurer le mode `remove` dans les paramètres du plugin
-2. Vérifier que `storage_path` pointe vers le bon répertoire
-3. Vérifier FFmpeg : `ffmpeg -version && ffprobe -version`
-4. Importer une vidéo YouTube avec des segments connus
-5. Vérifier la file d'attente en DB :
+1. Set the mode to `remove` in the plugin settings
+2. Verify that `storage_path` points to the correct directory
+3. Verify FFmpeg: `ffmpeg -version && ffprobe -version`
+4. Import a YouTube video with known segments
+5. Check the queue in the database:
    ```bash
    sudo -u postgres psql peertube_prod -c "SELECT id, video_uuid, status, priority FROM plugin_sponsorblock_processing_queue;"
    ```
-6. Le worker traite les jobs toutes les 30s — vérifier les logs pour le suivi
+6. The worker processes jobs every 30s — check the logs for progress
 
-## Développement
+## Development
 
 ### Logs
 
-Les logs du plugin sont visibles dans les logs PeerTube :
+Plugin logs are visible in the PeerTube logs:
 
 ```bash
-# Suivre les logs en temps réel
+# Follow logs in real time
 sudo journalctl -u peertube -f
 
-# Ou depuis les fichiers de log
+# Or from the log files
 tail -f /var/www/peertube/storage/logs/peertube.log
 ```
 
-### Déboguer le code client
+### Debugging client-side code
 
-Ouvrir la console développeur du navigateur (F12) :
+Open the browser developer console (F12):
 
 ```javascript
-// Les logs du plugin commencent par [SponsorBlock]
+// Plugin logs start with [SponsorBlock]
 console.log('[SponsorBlock] Video loaded')
 ```
 
-### Recharger le plugin après modifications
+### Reloading the plugin after changes
 
 ```bash
-# Redémarrer PeerTube
+# Restart PeerTube
 sudo systemctl restart peertube
 
-# Ou recharger uniquement les plugins (si disponible)
-# Via l'interface admin : Plugins > Reload
+# Or reload plugins only (if available)
+# Via the admin interface: Plugins > Reload
 ```
 
-## Développer de nouvelles fonctionnalités
+## Developing New Features
 
-### Ajouter un nouveau hook
+### Adding a new hook
 
-Modifier `main.js` :
+Edit `main.js`:
 
 ```javascript
 registerHook({
   target: 'action:api.video.updated',
   handler: async (params) => {
-    // Votre code ici
+    // Your code here
   }
 })
 ```
 
-Liste complète des hooks : https://docs.joinpeertube.org/api/plugins
+Full list of hooks: https://docs.joinpeertube.org/api/plugins
 
-### Ajouter une nouvelle route API
+### Adding a new API route
 
-Modifier `server/routes.js` :
+Edit `server/routes.js`:
 
 ```javascript
-router.get('/mon-endpoint', async (req, res) => {
-  // Votre code ici
+router.get('/my-endpoint', async (req, res) => {
+  // Your code here
   res.json({ success: true })
 })
 ```
 
-### Modifier le comportement client
+### Modifying client-side behavior
 
-Modifier `client/video-watch.js` :
+Edit `client/video-watch.js`:
 
 ```javascript
-// Votre code pour interagir avec le lecteur vidéo
+// Your code to interact with the video player
 player.on('play', () => {
   console.log('Video started playing')
 })
@@ -233,67 +246,67 @@ player.on('play', () => {
 
 ## Tests
 
-### Tests unitaires (TODO)
+### Unit tests (TODO)
 
 ```bash
 npm test
 ```
 
-### Tests d'intégration (TODO)
+### Integration tests (TODO)
 
 ```bash
 npm run test:integration
 ```
 
-## Publication
+## Publishing
 
-### Préparer la release
+### Preparing a release
 
-1. Mettre à jour la version dans `package.json`
-2. Mettre à jour le `CHANGELOG.md`
-3. Créer un tag git :
+1. Update the version in `package.json`
+2. Update `CHANGELOG.md`
+3. Create a git tag:
 
 ```bash
 git tag -a v0.1.0 -m "Release v0.1.0"
 git push origin v0.1.0
 ```
 
-### Publier sur NPM
+### Publishing to NPM
 
 ```bash
 npm publish
 ```
 
-### Soumettre au registry PeerTube
+### Submitting to the PeerTube registry
 
-Le plugin sera automatiquement indexé par PeerTube s'il est publié sur NPM avec le préfixe `peertube-plugin-`.
+The plugin will be automatically indexed by PeerTube if published on NPM with the `peertube-plugin-` prefix.
 
-## Ressources
+## Resources
 
-- **Documentation PeerTube** : https://docs.joinpeertube.org/contribute/plugins
-- **API SponsorBlock** : https://wiki.sponsor.ajay.app/w/API_Docs
-- **Exemple de plugin** : https://github.com/samlich/peertube-plugin-chapters
+- **PeerTube Documentation**: https://docs.joinpeertube.org/contribute/plugins
+- **SponsorBlock API**: https://wiki.sponsor.ajay.app/w/API_Docs
+- **Plugin Example**: https://github.com/samlich/peertube-plugin-chapters
 
-## Problèmes connus
+## Known Issues
 
-### Le plugin ne s'active pas
+### The plugin does not activate
 
-- Vérifier les logs : `sudo journalctl -u peertube -f`
-- Vérifier que `engine.peertube` dans `package.json` correspond à votre version
-- Vérifier les permissions du répertoire du plugin
+- Check the logs: `sudo journalctl -u peertube -f`
+- Verify that `engine.peertube` in `package.json` matches your version
+- Check the plugin directory permissions
 
-### Les segments ne sont pas sautés
+### Segments are not skipped
 
-- Ouvrir la console développeur (F12)
-- Vérifier que les segments sont bien récupérés : `[SponsorBlock] Found X segments to skip`
-- Vérifier que l'API retourne les segments : `/plugins/sponsorblock/router/segments/{UUID}`
+- Open the developer console (F12)
+- Verify that segments are fetched: `[SponsorBlock] Found X segments to skip`
+- Verify that the API returns segments: `/plugins/sponsorblock/router/segments/{UUID}`
 
-### Erreur de base de données
+### Database error
 
-- Vérifier que les tables existent : `\dt plugin_sponsorblock*` dans psql
-- Supprimer et recréer les tables si nécessaire (attention : perte de données)
+- Verify the tables exist: `\dt plugin_sponsorblock*` in psql
+- Drop and recreate the tables if needed (warning: data loss)
 
 ## Support
 
-Pour signaler un bug ou demander une fonctionnalité :
+To report a bug or request a feature:
 https://github.com/jblemee/peertube-plugin-sponsorblock/issues

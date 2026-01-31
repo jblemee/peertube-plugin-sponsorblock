@@ -171,3 +171,239 @@
   font-family: monospace;
   color: #ccc;
 }
+
+/* ==========================================
+   Admin Dashboard
+   ========================================== */
+
+.sponsorblock-admin-root {
+  padding: 20px 0;
+  font-size: 14px;
+  color: #eee;
+}
+
+/* Stats row */
+.sponsorblock-admin-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.sponsorblock-admin-stat {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px 20px;
+  min-width: 160px;
+  flex: 1;
+}
+
+.sponsorblock-admin-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #00b300;
+  line-height: 1.2;
+}
+
+.sponsorblock-admin-stat-label {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Action buttons bar */
+.sponsorblock-admin-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.sponsorblock-admin-btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  background: #00b300;
+  transition: background 0.15s;
+}
+
+.sponsorblock-admin-btn:hover {
+  background: #009a00;
+}
+
+.sponsorblock-admin-btn:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+.sponsorblock-admin-btn--secondary {
+  background: #2a6dd4;
+}
+
+.sponsorblock-admin-btn--secondary:hover {
+  background: #1f5bb8;
+}
+
+.sponsorblock-admin-btn--danger {
+  background: #e74c3c;
+}
+
+.sponsorblock-admin-btn--danger:hover {
+  background: #c0392b;
+}
+
+/* Status message */
+.sponsorblock-admin-message {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.sponsorblock-admin-message--success {
+  background: rgba(0, 179, 0, 0.15);
+  color: #00b300;
+  border: 1px solid rgba(0, 179, 0, 0.3);
+}
+
+.sponsorblock-admin-message--error {
+  background: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+/* Mappings table */
+.sponsorblock-admin-table-wrap {
+  overflow-x: auto;
+}
+
+.sponsorblock-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sponsorblock-admin-table th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid #333;
+  color: #999;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.sponsorblock-admin-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #222;
+  vertical-align: middle;
+}
+
+.sponsorblock-admin-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sponsorblock-admin-table code {
+  background: #2a2a2a;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #ccc;
+}
+
+/* Row action buttons */
+.sponsorblock-admin-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sponsorblock-admin-row-btn {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  background: #444;
+  transition: background 0.15s;
+}
+
+.sponsorblock-admin-row-btn:hover {
+  background: #555;
+}
+
+.sponsorblock-admin-row-btn--sync {
+  background: #2a6dd4;
+}
+
+.sponsorblock-admin-row-btn--sync:hover {
+  background: #1f5bb8;
+}
+
+.sponsorblock-admin-row-btn--process {
+  background: #00b300;
+}
+
+.sponsorblock-admin-row-btn--process:hover {
+  background: #009a00;
+}
+
+.sponsorblock-admin-row-btn--delete {
+  background: #e74c3c;
+}
+
+.sponsorblock-admin-row-btn--delete:hover {
+  background: #c0392b;
+}
+
+.sponsorblock-admin-row-btn:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+/* Queue status badges */
+.sponsorblock-admin-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.sponsorblock-admin-badge--pending {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.sponsorblock-admin-badge--processing {
+  background: rgba(42, 109, 212, 0.2);
+  color: #5b9aef;
+}
+
+.sponsorblock-admin-badge--done {
+  background: rgba(0, 179, 0, 0.2);
+  color: #00b300;
+}
+
+.sponsorblock-admin-badge--error {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+/* Empty state */
+.sponsorblock-admin-empty {
+  text-align: center;
+  color: #666;
+  padding: 40px 20px;
+  font-size: 14px;
+}

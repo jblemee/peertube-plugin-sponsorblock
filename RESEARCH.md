@@ -1,144 +1,144 @@
-# Recherche : Plugin SponsorBlock pour PeerTube
+# Research: SponsorBlock Plugin for PeerTube
 
-**Date de recherche** : 2026-01-31
-**Objectif** : Créer un plugin PeerTube qui intègre SponsorBlock pour sauter (ou supprimer) automatiquement les segments sponsorisés des vidéos importées depuis YouTube.
-
----
-
-## Table des matières
-
-1. [Contexte](#contexte)
-2. [État de l'art](#état-de-lart)
-3. [Capacités du système de plugins PeerTube](#capacités-du-système-de-plugins-peertube)
-4. [Architecture proposée](#architecture-proposée)
-5. [Défis techniques](#défis-techniques)
-6. [Approches possibles](#approches-possibles)
-7. [Ressources](#ressources)
+**Research date**: 2026-01-31
+**Goal**: Create a PeerTube plugin that integrates SponsorBlock to automatically skip (or remove) sponsor segments from videos imported from YouTube.
 
 ---
 
-## Contexte
+## Table of Contents
 
-### Qu'est-ce que SponsorBlock ?
+1. [Context](#context)
+2. [State of the Art](#state-of-the-art)
+3. [PeerTube Plugin System Capabilities](#peertube-plugin-system-capabilities)
+4. [Proposed Architecture](#proposed-architecture)
+5. [Technical Challenges](#technical-challenges)
+6. [Possible Approaches](#possible-approaches)
+7. [Resources](#resources)
 
-SponsorBlock est un système **crowdsourcé** qui permet de sauter automatiquement les segments sponsorisés dans les vidéos YouTube. Les utilisateurs soumettent manuellement les timestamps des segments indésirables :
-- Sponsorships (placements de produits)
+---
+
+## Context
+
+### What is SponsorBlock?
+
+SponsorBlock is a **crowdsourced** system that allows automatic skipping of sponsor segments in YouTube videos. Users manually submit timestamps of unwanted segments:
+- Sponsorships (product placements)
 - Intros/outros
-- Rappels d'abonnement
-- Auto-promotions
-- Segments non musicaux dans les vidéos musicales
+- Subscription reminders
+- Self-promotions
+- Non-music segments in music videos
 
-Ces données sont stockées dans une base de données centralisée accessible via API : `https://sponsor.ajay.app/api/`
+This data is stored in a centralized database accessible via API: `https://sponsor.ajay.app/api/`
 
-### Le problème
+### The Problem
 
-PeerTube ne supporte pas nativement SponsorBlock. Les vidéos importées depuis YouTube contiennent toujours les segments sponsorisés, même si SponsorBlock a déjà identifié ces segments dans la base de données.
+PeerTube does not natively support SponsorBlock. Videos imported from YouTube still contain sponsor segments, even though SponsorBlock has already identified these segments in its database.
 
-### Use case spécifique
+### Specific Use Case
 
-Les vidéos sont importées dans PeerTube :
-- Soit manuellement via URL YouTube
-- Soit automatiquement via synchronisation de chaîne YouTube
+Videos are imported into PeerTube:
+- Either manually via YouTube URL
+- Or automatically via YouTube channel synchronization
 
-Dans ces cas, **l'ID YouTube original est connu** et peut être utilisé pour interroger l'API SponsorBlock.
+In these cases, **the original YouTube ID is known** and can be used to query the SponsorBlock API.
 
 ---
 
-## État de l'art
+## State of the Art
 
-### Projets existants
+### Existing Projects
 
 #### 1. **peertube-plugin-chapters**
-- **URL** : https://github.com/samlich/peertube-plugin-chapters
-- **NPM** : https://www.npmjs.com/package/peertube-plugin-chapters
-- **Statut** : Dernière publication il y a 3 ans (v1.1.3)
-- **Fonctionnalité** : Permet d'ajouter manuellement des chapitres aux vidéos avec des tags similaires à SponsorBlock ("Sponsor", "Self-promotion", etc.)
-- **Limitation** :
-  - Saisie **manuelle** uniquement
-  - Pas de connexion à la base de données SponsorBlock
-  - Devait être obsolète selon la roadmap PeerTube 2023
+- **URL**: https://github.com/samlich/peertube-plugin-chapters
+- **NPM**: https://www.npmjs.com/package/peertube-plugin-chapters
+- **Status**: Last published 3 years ago (v1.1.3)
+- **Feature**: Allows manually adding chapters to videos with tags similar to SponsorBlock ("Sponsor", "Self-promotion", etc.)
+- **Limitation**:
+  - **Manual** input only
+  - No connection to the SponsorBlock database
+  - Was supposed to become obsolete per the PeerTube 2023 roadmap
 
 #### 2. **Tubular (Android)**
-- **URL** : https://alternativeto.net/software/newpipe-x-sponsorblock/about/
-- **Fonctionnalité** : Client Android qui combine SponsorBlock et support PeerTube
-- **Limitation** : Application mobile, pas un plugin serveur
+- **URL**: https://alternativeto.net/software/newpipe-x-sponsorblock/about/
+- **Feature**: Android client combining SponsorBlock and PeerTube support
+- **Limitation**: Mobile app, not a server plugin
 
-### Feature requests ouvertes
+### Open Feature Requests
 
-Plusieurs demandes depuis **2020** restent non implémentées :
-- [Issue #1209](https://github.com/ajayyy/SponsorBlock/issues/1209) - Add peertube support (2022)
-- [Issue #1938](https://github.com/ajayyy/SponsorBlock/issues/1938) - Lack of PeerTube Support
-- [Issue #993](https://github.com/ajayyy/SponsorBlock/issues/993) - PeerTube Support (2020)
-- [Issue #515](https://github.com/ajayyy/SponsorBlock/issues/515) - Expand integration beyond YouTube
+Several requests since **2020** remain unimplemented:
+- [Issue #1209](https://github.com/ajayyy/SponsorBlock/issues/1209) — Add PeerTube support (2022)
+- [Issue #1938](https://github.com/ajayyy/SponsorBlock/issues/1938) — Lack of PeerTube Support
+- [Issue #993](https://github.com/ajayyy/SponsorBlock/issues/993) — PeerTube Support (2020)
+- [Issue #515](https://github.com/ajayyy/SponsorBlock/issues/515) — Expand integration beyond YouTube
 
 ### Conclusion
 
-**Aucun plugin SponsorBlock natif pour PeerTube n'existe actuellement.**
+**No native SponsorBlock plugin for PeerTube currently exists.**
 
 ---
 
-## Capacités du système de plugins PeerTube
+## PeerTube Plugin System Capabilities
 
-### Documentation officielle
+### Official Documentation
 
-- **Guide des plugins** : https://docs.joinpeertube.org/contribute/plugins
-- **API de référence** : https://docs.joinpeertube.org/api/plugins
-- **API Embed** : https://docs.joinpeertube.org/api/embed-player
+- **Plugin Guide**: https://docs.joinpeertube.org/contribute/plugins
+- **API Reference**: https://docs.joinpeertube.org/api/plugins
+- **Embed API**: https://docs.joinpeertube.org/api/embed-player
 
-### Système de hooks
+### Hook System
 
-PeerTube utilise un système de hooks en 3 types :
-1. **Filter hooks** : Modifient les paramètres ou valeurs de retour
-2. **Action hooks** : Exécutent du code après un événement
-3. **Static hooks** : Comme les action hooks mais PeerTube attend leur exécution
+PeerTube uses a hook system with 3 types:
+1. **Filter hooks**: Modify parameters or return values
+2. **Action hooks**: Execute code after an event
+3. **Static hooks**: Like action hooks but PeerTube waits for their execution
 
-### Hooks pertinents pour SponsorBlock
+### Hooks Relevant to SponsorBlock
 
-#### Hooks d'import de vidéos
+#### Video Import Hooks
 
 ```javascript
-// Avant import
+// Before import
 'filter:api.video.pre-import-url.accept.result'
 'filter:api.video.pre-import-torrent.accept.result'
 
-// Après import
+// After import
 'filter:api.video.post-import-url.accept.result'
 'filter:api.video.post-import-torrent.accept.result'
 
-// Modification des attributs lors de l'import
+// Attribute modification during import
 'filter:api.video.import-url.video-attribute.result'
 'filter:api.video.import-torrent.video-attribute.result'
 
-// Import utilisateur (PeerTube ≥ 6.1)
+// User import (PeerTube >= 6.1)
 'filter:api.video.user-import.accept.result'
 'filter:api.video.user-import.video-attribute.result'
 ```
 
-#### Hooks du lecteur vidéo
+#### Video Player Hooks
 
 ```javascript
-// Vidéo chargée dans le lecteur
+// Video loaded in the player
 'action:video-watch.video.loaded'
 
-// Événements de lecture
+// Playback events
 'action:api.video.uploaded'
 'action:api.video.updated'
 ```
 
-### Accès à la base de données
+### Database Access
 
-Les plugins peuvent accéder à la base de données PostgreSQL via `peertubeHelpers.database` :
+Plugins can access the PostgreSQL database via `peertubeHelpers.database`:
 
 ```javascript
 async function register ({ peertubeHelpers }) {
   const database = peertubeHelpers.database;
 
-  // Exécuter des requêtes SQL brutes
+  // Execute raw SQL queries
   const [results, _] = await database.query(`
     SELECT "videoId" as id, name FROM video WHERE ...
   `);
 
-  // Créer des tables personnalisées
+  // Create custom tables
   await database.query(`
     CREATE TABLE IF NOT EXISTS plugin_my_table (
       id SERIAL PRIMARY KEY,
@@ -148,29 +148,29 @@ async function register ({ peertubeHelpers }) {
 }
 ```
 
-### Stockage de données
+### Data Storage
 
-Deux options :
-1. **PluginStorageManager** : Stockage clé-valeur JSON dans la DB PeerTube
-2. **Tables personnalisées** : Via requêtes SQL directes
+Two options:
+1. **PluginStorageManager**: JSON key-value storage in the PeerTube DB
+2. **Custom tables**: Via direct SQL queries
 
-### Accès aux APIs externes
+### External API Access
 
-Les plugins peuvent faire des requêtes HTTP externes pour interroger des APIs comme SponsorBlock.
+Plugins can make external HTTP requests to query APIs like SponsorBlock.
 
-### Modification de l'interface
+### UI Modification
 
-- Injection de CSS et fichiers statiques
-- Modification du lecteur vidéo et de ses contrôles
-- Ajout de routes et pages personnalisées
+- CSS and static file injection
+- Video player and controls modification
+- Custom routes and pages
 
 ---
 
-## Architecture proposée
+## Proposed Architecture
 
-### Composants du plugin
+### Plugin Components
 
-#### 1. Table de mapping YouTube ID ↔ PeerTube UUID
+#### 1. YouTube ID to PeerTube UUID Mapping Table
 
 ```sql
 CREATE TABLE IF NOT EXISTS plugin_sponsorblock_mapping (
@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS plugin_sponsorblock_mapping (
 CREATE INDEX idx_youtube_id ON plugin_sponsorblock_mapping(youtube_id);
 ```
 
-#### 2. Cache local des segments SponsorBlock
+#### 2. Local SponsorBlock Segments Cache
 
 ```sql
 CREATE TABLE IF NOT EXISTS plugin_sponsorblock_segments (
@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS plugin_sponsorblock_segments (
 CREATE INDEX idx_segments_youtube_id ON plugin_sponsorblock_segments(youtube_id);
 ```
 
-#### 3. Hook d'import pour capturer l'ID YouTube
+#### 3. Import Hook to Capture YouTube ID
 
 ```javascript
 registerHook({
@@ -210,18 +210,18 @@ registerHook({
     const { videoImport } = params;
     const targetUrl = videoImport.targetUrl;
 
-    // Extraire l'ID YouTube
+    // Extract YouTube ID
     const youtubeId = extractYouTubeId(targetUrl);
 
     if (youtubeId && videoImport.video) {
-      // Sauvegarder le mapping
+      // Save mapping
       await database.query(`
         INSERT INTO plugin_sponsorblock_mapping (peertube_uuid, youtube_id)
         VALUES ($1, $2)
         ON CONFLICT (peertube_uuid) DO NOTHING
       `, [videoImport.video.uuid, youtubeId]);
 
-      // Récupérer et cacher les segments SponsorBlock
+      // Fetch and cache SponsorBlock segments
       await fetchAndCacheSegments(youtubeId);
     }
 
@@ -230,7 +230,7 @@ registerHook({
 });
 ```
 
-#### 4. Fonction d'extraction d'ID YouTube
+#### 4. YouTube ID Extraction Function
 
 ```javascript
 function extractYouTubeId(url) {
@@ -248,7 +248,7 @@ function extractYouTubeId(url) {
 }
 ```
 
-#### 5. Récupération des segments SponsorBlock
+#### 5. SponsorBlock Segment Retrieval
 
 ```javascript
 async function fetchAndCacheSegments(youtubeId) {
@@ -285,57 +285,57 @@ async function fetchAndCacheSegments(youtubeId) {
 
 ---
 
-## Défis techniques
+## Technical Challenges
 
-### 1. Identification des vidéos
+### 1. Video Identification
 
-**Problème** : PeerTube ne stocke pas nativement l'URL/ID YouTube source.
+**Problem**: PeerTube does not natively store the source YouTube URL/ID.
 
-**Solutions** :
-- ✅ Feature requests ouvertes (#2467, #6013) mais non implémentées
-- ✅ Le plugin peut créer sa propre table de mapping
-- ✅ Extraction de l'ID lors de l'import via hooks
+**Solutions**:
+- Open feature requests (#2467, #6013) but not implemented
+- The plugin can create its own mapping table
+- ID extraction on import via hooks
 
-### 2. Vidéos déjà importées
+### 2. Already Imported Videos
 
-**Problème** : Les vidéos importées avant l'installation du plugin n'auront pas de mapping.
+**Problem**: Videos imported before the plugin is installed will not have a mapping.
 
-**Solutions** :
-- Script de migration pour analyser les descriptions/métadonnées
-- Interface d'administration pour lier manuellement les vidéos
-- Utilisation de l'API YouTube pour rechercher par titre/description
+**Solutions**:
+- Migration script to analyze descriptions/metadata
+- Admin interface to manually link videos
+- Use the YouTube API to search by title/description
 
-### 3. Synchronisation avec SponsorBlock
+### 3. SponsorBlock Synchronization
 
-**Problème** : Les segments SponsorBlock évoluent (nouveaux segments, votes modifiés).
+**Problem**: SponsorBlock segments evolve (new segments, modified votes).
 
-**Solutions** :
-- Tâche cron pour resynchroniser périodiquement
-- Webhook si l'API SponsorBlock le supporte
-- Cache avec TTL (Time To Live)
+**Solutions**:
+- Periodic cron task for re-sync
+- Webhook if the SponsorBlock API supports it
+- Cache with TTL (Time To Live)
 
-### 4. Modifications du schéma core
+### 4. Core Schema Modifications
 
-**Problème** : Modifier les tables core de PeerTube peut causer des conflits avec les migrations officielles.
+**Problem**: Modifying PeerTube core tables can cause conflicts with official migrations.
 
-**Solution** :
-- ✅ Utiliser uniquement des tables personnalisées avec préfixe `plugin_*`
-- ✅ Foreign keys avec `ON DELETE CASCADE` pour la cohérence
+**Solution**:
+- Use only custom tables with the `plugin_*` prefix
+- Foreign keys with `ON DELETE CASCADE` for consistency
 
 ---
 
-## Approches possibles
+## Possible Approaches
 
-### Approche 1 : Skip côté client (lecteur vidéo)
+### Approach 1: Client-side skip (video player)
 
-**Description** : Comme SponsorBlock sur YouTube, sauter automatiquement les segments lors de la lecture.
+**Description**: Like SponsorBlock on YouTube, automatically skip segments during playback.
 
-**Implémentation** :
+**Implementation**:
 ```javascript
 registerHook({
   target: 'action:video-watch.video.loaded',
   handler: async ({ video, player }) => {
-    // Récupérer l'ID YouTube
+    // Fetch YouTube ID
     const [rows] = await database.query(`
       SELECT youtube_id FROM plugin_sponsorblock_mapping
       WHERE peertube_uuid = $1
@@ -343,14 +343,14 @@ registerHook({
 
     if (!rows[0]) return;
 
-    // Récupérer les segments
+    // Fetch segments
     const [segments] = await database.query(`
       SELECT start_time, end_time, category
       FROM plugin_sponsorblock_segments
       WHERE youtube_id = $1
     `, [rows[0].youtube_id]);
 
-    // Implémenter le skip automatique
+    // Implement automatic skipping
     player.on('timeupdate', () => {
       const currentTime = player.currentTime();
 
@@ -359,8 +359,8 @@ registerHook({
             currentTime < segment.end_time) {
           player.currentTime(segment.end_time);
 
-          // Afficher une notification
-          showNotification(`Segment ${segment.category} sauté`);
+          // Show a notification
+          showNotification(`Skipped ${segment.category} segment`);
           break;
         }
       }
@@ -369,26 +369,26 @@ registerHook({
 });
 ```
 
-**Avantages** :
-- ✅ Pas de modification des fichiers vidéo
-- ✅ Réversible (peut être désactivé)
-- ✅ Rapide à implémenter
-- ✅ Pas de stockage supplémentaire
+**Advantages**:
+- No modification of video files
+- Reversible (can be disabled)
+- Quick to implement
+- No additional storage
 
-**Inconvénients** :
-- ❌ Les segments sont toujours téléchargés (bande passante)
-- ❌ Ne fonctionne que dans le lecteur web PeerTube
-- ❌ Peut être contourné en téléchargeant la vidéo
+**Disadvantages**:
+- Segments are still downloaded (bandwidth)
+- Works only in the PeerTube web player
+- Can be bypassed by downloading the video
 
 ---
 
-### Approche 2 : Suppression permanente des segments (post-traitement vidéo)
+### Approach 2: Permanent segment removal (video post-processing)
 
-**Description** : Modifier le fichier vidéo source pour supprimer physiquement les segments sponsorisés.
+**Description**: Modify the source video file to physically remove sponsor segments.
 
-**Implémentation** :
+**Implementation**:
 
-#### Étape 1 : Hook après import
+#### Step 1: Post-import hook
 
 ```javascript
 registerHook({
@@ -398,14 +398,14 @@ registerHook({
     const youtubeId = extractYouTubeId(videoImport.targetUrl);
 
     if (youtubeId && videoImport.video) {
-      // Sauvegarder le mapping
+      // Save mapping
       await saveMapping(videoImport.video.uuid, youtubeId);
 
-      // Récupérer les segments
+      // Fetch segments
       const segments = await fetchSponsorBlockSegments(youtubeId);
 
       if (segments.length > 0) {
-        // Déclencher le traitement vidéo en arrière-plan
+        // Queue video processing in background
         await queueVideoProcessing(videoImport.video.uuid, segments);
       }
     }
@@ -415,7 +415,7 @@ registerHook({
 });
 ```
 
-#### Étape 2 : Traitement vidéo avec FFmpeg
+#### Step 2: Video processing with FFmpeg
 
 ```javascript
 async function processVideoRemoveSegments(videoUuid, segments) {
@@ -423,34 +423,34 @@ async function processVideoRemoveSegments(videoUuid, segments) {
   const videoPath = getVideoFilePath(video);
   const outputPath = getTempPath();
 
-  // Trier les segments par ordre chronologique
+  // Sort segments chronologically
   segments.sort((a, b) => a.start_time - b.start_time);
 
-  // Créer un fichier de découpe FFmpeg
+  // Create an FFmpeg cutting filter
   const filterComplex = buildFFmpegFilterComplex(segments, video.duration);
 
-  // Exécuter FFmpeg
+  // Execute FFmpeg
   await execFFmpeg([
     '-i', videoPath,
     '-filter_complex', filterComplex,
-    '-c:v', 'copy',  // Copier sans ré-encoder si possible
+    '-c:v', 'copy',  // Copy without re-encoding if possible
     '-c:a', 'copy',
     outputPath
   ]);
 
-  // Remplacer le fichier original
+  // Replace original file
   await replaceVideoFile(video, outputPath);
 
-  // Mettre à jour la durée de la vidéo
+  // Update video duration
   await updateVideoDuration(video);
 }
 ```
 
-#### Étape 3 : Construction du filtre FFmpeg
+#### Step 3: FFmpeg filter construction
 
 ```javascript
 function buildFFmpegFilterComplex(segments, duration) {
-  // Créer une liste des parties à garder (inverser les segments à supprimer)
+  // Create a list of parts to keep (invert the segments to remove)
   const keepSegments = [];
   let lastEnd = 0;
 
@@ -464,7 +464,7 @@ function buildFFmpegFilterComplex(segments, duration) {
     lastEnd = segment.end_time;
   }
 
-  // Ajouter la dernière partie
+  // Add the last part
   if (lastEnd < duration) {
     keepSegments.push({
       start: lastEnd,
@@ -472,7 +472,7 @@ function buildFFmpegFilterComplex(segments, duration) {
     });
   }
 
-  // Construire le filtre de concaténation FFmpeg
+  // Build the FFmpeg concat filter
   const filters = [];
 
   for (let i = 0; i < keepSegments.length; i++) {
@@ -483,7 +483,7 @@ function buildFFmpegFilterComplex(segments, duration) {
     );
   }
 
-  // Concaténer tous les segments
+  // Concatenate all segments
   const vInputs = keepSegments.map((_, i) => `[v${i}]`).join('');
   const aInputs = keepSegments.map((_, i) => `[a${i}]`).join('');
 
@@ -496,10 +496,10 @@ function buildFFmpegFilterComplex(segments, duration) {
 }
 ```
 
-#### Étape 4 : Gestion de la file d'attente
+#### Step 4: Queue management
 
 ```javascript
-// Table pour suivre les traitements
+// Table to track processing jobs
 CREATE TABLE IF NOT EXISTS plugin_sponsorblock_processing_queue (
   id SERIAL PRIMARY KEY,
   video_uuid UUID NOT NULL,
@@ -511,7 +511,7 @@ CREATE TABLE IF NOT EXISTS plugin_sponsorblock_processing_queue (
   error TEXT
 );
 
-// Worker de traitement
+// Processing worker
 async function processQueue() {
   const [job] = await database.query(`
     UPDATE plugin_sponsorblock_processing_queue
@@ -546,142 +546,140 @@ async function processQueue() {
 }
 ```
 
-**Avantages** :
-- ✅ Économie de bande passante (segments supprimés)
-- ✅ Économie de stockage
-- ✅ Fonctionne partout (téléchargement, lecteurs externes)
-- ✅ Expérience utilisateur optimale
+**Advantages**:
+- Bandwidth savings (segments removed)
+- Storage savings
+- Works everywhere (downloads, external players)
+- Optimal user experience
 
-**Inconvénients** :
-- ❌ Complexe à implémenter
-- ❌ Irréversible (sauf backup)
-- ❌ Charge CPU/temps de traitement (FFmpeg)
-- ❌ Risque de perte de qualité si ré-encodage nécessaire
-- ❌ Nécessite accès aux fichiers vidéo sur le système de fichiers
-- ❌ Peut nécessiter des permissions élevées
+**Disadvantages**:
+- Complex to implement
+- Irreversible (unless backup)
+- CPU/processing time (FFmpeg)
+- Risk of quality loss if re-encoding is needed
+- Requires access to video files on the filesystem
+- May require elevated permissions
 
-**Défis spécifiques** :
+**Specific challenges**:
 
-1. **Accès aux fichiers vidéo** : Les plugins ont-ils accès au système de fichiers ?
-2. **Transcodage** : PeerTube stocke plusieurs versions (résolutions différentes) - il faut toutes les traiter
-3. **Synchronisation** : Gérer les états pendant le traitement (vidéo temporairement indisponible ?)
-4. **Atomicité** : Assurer que le remplacement du fichier est atomique
-5. **Rollback** : Que faire en cas d'erreur ?
-
----
-
-### Approche 3 : Hybride
-
-**Description** : Combiner les deux approches.
-
-**Implémentation** :
-1. **Skip immédiat** : Utiliser l'approche 1 pour une expérience utilisateur immédiate
-2. **Traitement en arrière-plan** : Lancer l'approche 2 en arrière-plan
-3. **Mise à jour progressive** : Une fois le traitement terminé, servir la version nettoyée
-
-**Avantages** :
-- ✅ Meilleure UX (pas d'attente)
-- ✅ Bénéfices des deux approches à terme
-
-**Inconvénients** :
-- ❌ Complexité maximale
-- ❌ Gestion de deux systèmes parallèles
+1. **Video file access**: Do plugins have filesystem access?
+2. **Transcoding**: PeerTube stores multiple versions (different resolutions) — all need processing
+3. **Synchronization**: Managing states during processing (video temporarily unavailable?)
+4. **Atomicity**: Ensuring file replacement is atomic
+5. **Rollback**: What to do on error?
 
 ---
 
-## Recommandations
+### Approach 3: Hybrid
 
-### Phase 1 : MVP (Minimum Viable Product)
+**Description**: Combine both approaches.
 
-**Objectif** : Valider la faisabilité technique avec l'approche 1 (skip côté client).
+**Implementation**:
+1. **Immediate skip**: Use approach 1 for an immediate user experience
+2. **Background processing**: Launch approach 2 in background
+3. **Progressive update**: Once processing is complete, serve the cleaned version
 
-**Tâches** :
-1. ✅ Créer la structure du plugin
-2. ✅ Implémenter la table de mapping YouTube ID
-3. ✅ Hook d'import pour capturer l'ID YouTube
-4. ✅ Récupération et cache des segments SponsorBlock
-5. ✅ Skip automatique dans le lecteur vidéo
-6. ✅ Interface de configuration (activer/désactiver par catégorie)
+**Advantages**:
+- Best UX (no waiting)
+- Benefits of both approaches over time
 
-**Durée estimée** : Non applicable (pas d'estimations de temps)
-
-### Phase 2 : Amélioration
-
-**Objectif** : Ajouter des fonctionnalités avancées.
-
-**Tâches** :
-- Interface d'administration pour gérer les mappings
-- Synchronisation périodique avec SponsorBlock
-- Support des vidéos déjà importées (migration)
-- Statistiques (segments sautés, temps économisé)
-- Indicateurs visuels sur la timeline
-
-### Phase 3 : Suppression permanente (optionnel)
-
-**Objectif** : Implémenter l'approche 2 si nécessaire.
-
-**Pré-requis** :
-- Vérifier les permissions d'accès aux fichiers
-- Tester la performance FFmpeg
-- Implémenter un système de backup
-- Gérer les états de traitement
-
-**À explorer** :
-- PeerTube a-t-il une API pour le transcodage ?
-- Peut-on réutiliser le système de jobs existant ?
-- Comment gérer les WebTorrents (fichiers distribués) ?
+**Disadvantages**:
+- Maximum complexity
+- Managing two parallel systems
 
 ---
 
-## Ressources
+## Recommendations
 
-### Documentation PeerTube
+### Phase 1: MVP (Minimum Viable Product)
 
-- **Guide des plugins** : https://docs.joinpeertube.org/contribute/plugins
-- **API Plugins** : https://docs.joinpeertube.org/api/plugins
-- **API Embed** : https://docs.joinpeertube.org/api/embed-player
-- **Guide de développement serveur** : https://docs.joinpeertube.org/support/doc/development/server
-- **Architecture** : https://docs.joinpeertube.org/contribute/architecture
+**Goal**: Validate technical feasibility with approach 1 (client-side skip).
 
-### Exemples de plugins
+**Tasks**:
+1. Create the plugin structure
+2. Implement the YouTube ID mapping table
+3. Import hook to capture YouTube ID
+4. SponsorBlock segment retrieval and caching
+5. Automatic skipping in the video player
+6. Configuration interface (enable/disable by category)
 
-- **peertube-plugin-chapters** : https://github.com/samlich/peertube-plugin-chapters
-- **Liste des plugins** : https://framagit.org/framasoft/peertube/official-plugins
+### Phase 2: Improvements
 
-### API SponsorBlock
+**Goal**: Add advanced features.
 
-- **Documentation API** : https://wiki.sponsor.ajay.app/w/API_Docs
-- **Code source** : https://github.com/ajayyy/SponsorBlock
-- **Endpoint principal** : `GET https://sponsor.ajay.app/api/skipSegments?videoID={videoID}`
+**Tasks**:
+- Admin interface for managing mappings
+- Periodic sync with SponsorBlock
+- Support for already imported videos (migration)
+- Statistics (skipped segments, time saved)
+- Visual indicators on the timeline
 
-### Outils
+### Phase 3: Permanent removal (optional)
 
-- **FFmpeg** : https://ffmpeg.org/documentation.html
-- **Sequelize (ORM PeerTube)** : https://sequelize.org/docs/v6/
+**Goal**: Implement approach 2 if needed.
 
-### Issues GitHub pertinentes
+**Prerequisites**:
+- Verify file access permissions
+- Test FFmpeg performance
+- Implement a backup system
+- Manage processing states
 
-- [#2467 - Stocker l'URL originale des imports](https://github.com/Chocobozzz/PeerTube/issues/2467)
-- [#6013 - Stocker l'URL d'import](https://github.com/Chocobozzz/PeerTube/issues/6013)
-- [#1209 - SponsorBlock: Add PeerTube support](https://github.com/ajayyy/SponsorBlock/issues/1209)
-- [#1938 - Lack of PeerTube Support](https://github.com/ajayyy/SponsorBlock/issues/1938)
+**To explore**:
+- Does PeerTube have a transcoding API?
+- Can we reuse the existing job system?
+- How to handle WebTorrents (distributed files)?
 
 ---
 
-## Prochaines étapes
+## Resources
 
-1. **Analyser le code source de peertube-plugin-chapters** pour comprendre la structure
-2. **Créer le squelette du plugin** avec package.json et structure de base
-3. **Tester les hooks** dans un environnement de développement PeerTube
-4. **Implémenter le MVP** (approche 1 : skip côté client)
-5. **Tester** sur une instance PeerTube de développement
-6. **Publier** sur NPM et le registry PeerTube
+### PeerTube Documentation
+
+- **Plugin Guide**: https://docs.joinpeertube.org/contribute/plugins
+- **Plugin API**: https://docs.joinpeertube.org/api/plugins
+- **Embed API**: https://docs.joinpeertube.org/api/embed-player
+- **Server Development Guide**: https://docs.joinpeertube.org/support/doc/development/server
+- **Architecture**: https://docs.joinpeertube.org/contribute/architecture
+
+### Plugin Examples
+
+- **peertube-plugin-chapters**: https://github.com/samlich/peertube-plugin-chapters
+- **Plugin list**: https://framagit.org/framasoft/peertube/official-plugins
+
+### SponsorBlock API
+
+- **API Documentation**: https://wiki.sponsor.ajay.app/w/API_Docs
+- **Source Code**: https://github.com/ajayyy/SponsorBlock
+- **Main Endpoint**: `GET https://sponsor.ajay.app/api/skipSegments?videoID={videoID}`
+
+### Tools
+
+- **FFmpeg**: https://ffmpeg.org/documentation.html
+- **Sequelize (PeerTube ORM)**: https://sequelize.org/docs/v6/
+
+### Relevant GitHub Issues
+
+- [#2467 — Store original import URL](https://github.com/Chocobozzz/PeerTube/issues/2467)
+- [#6013 — Store import URL](https://github.com/Chocobozzz/PeerTube/issues/6013)
+- [#1209 — SponsorBlock: Add PeerTube support](https://github.com/ajayyy/SponsorBlock/issues/1209)
+- [#1938 — Lack of PeerTube Support](https://github.com/ajayyy/SponsorBlock/issues/1938)
+
+---
+
+## Next Steps
+
+1. **Analyze the peertube-plugin-chapters source code** to understand the structure
+2. **Create the plugin skeleton** with package.json and base structure
+3. **Test the hooks** in a PeerTube development environment
+4. **Implement the MVP** (approach 1: client-side skip)
+5. **Test** on a development PeerTube instance
+6. **Publish** to NPM and the PeerTube registry
 
 ---
 
 ## Notes
 
-- **Permissions** : À vérifier si les plugins peuvent accéder aux fichiers vidéo pour l'approche 2
-- **Performance** : FFmpeg peut être très consommateur de ressources
-- **Stockage** : L'approche 2 nécessite un espace temporaire pour le traitement
-- **Licence** : SponsorBlock est LGPL 3.0, vérifier la compatibilité
+- **Permissions**: To be verified — whether plugins can access video files for approach 2
+- **Performance**: FFmpeg can be very resource-intensive
+- **Storage**: Approach 2 requires temporary space for processing
+- **License**: SponsorBlock is LGPL 3.0, check compatibility
