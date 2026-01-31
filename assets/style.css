@@ -92,14 +92,14 @@
 
 .sponsorblock-widget-toggle {
   cursor: pointer;
-  color: #999;
+  color: var(--fg-500);
   user-select: none;
   display: inline-block;
   font-weight: 600;
 }
 
 .sponsorblock-widget-toggle:hover {
-  color: #ccc;
+  color: var(--fg);
 }
 
 .sponsorblock-widget-form {
@@ -113,36 +113,16 @@
   font-family: monospace;
   font-size: 13px;
   padding: 4px 8px;
-  border: 1px solid #555;
+  border: 1px solid var(--input-border-color);
   border-radius: 4px;
-  background: #1a1a1a;
-  color: #eee;
+  background: var(--input-bg);
+  color: var(--input-fg);
   width: 280px;
 }
 
 .sponsorblock-widget-input:focus {
   outline: none;
-  border-color: #00b300;
-}
-
-.sponsorblock-widget-btn {
-  padding: 4px 14px;
-  border: none;
-  border-radius: 4px;
-  background: #00b300;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.sponsorblock-widget-btn:hover {
-  background: #009a00;
-}
-
-.sponsorblock-widget-btn:disabled {
-  background: #555;
-  cursor: not-allowed;
+  border-color: var(--primary);
 }
 
 .sponsorblock-widget-status {
@@ -151,25 +131,25 @@
 }
 
 .sponsorblock-widget-status.success {
-  color: #00b300;
+  color: var(--green);
 }
 
 .sponsorblock-widget-status.error {
-  color: #e74c3c;
+  color: var(--red);
 }
 
 .sponsorblock-widget-current {
   margin-top: 6px;
-  color: #999;
+  color: var(--fg-500);
   font-size: 12px;
 }
 
 .sponsorblock-widget-current code {
-  background: #2a2a2a;
+  background: var(--bg-secondary-600);
   padding: 1px 5px;
   border-radius: 3px;
   font-family: monospace;
-  color: #ccc;
+  color: var(--fg);
 }
 
 /* ==========================================
@@ -179,7 +159,7 @@
 .sponsorblock-admin-root {
   padding: 20px 0;
   font-size: 14px;
-  color: #eee;
+  color: var(--fg);
 }
 
 /* Stats row */
@@ -191,8 +171,8 @@
 }
 
 .sponsorblock-admin-stat {
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--bg-secondary-600);
+  border: 1px solid var(--bg-secondary-400);
   border-radius: 8px;
   padding: 16px 20px;
   min-width: 160px;
@@ -202,13 +182,13 @@
 .sponsorblock-admin-stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #00b300;
+  color: var(--primary);
   line-height: 1.2;
 }
 
 .sponsorblock-admin-stat-label {
   font-size: 12px;
-  color: #999;
+  color: var(--fg-500);
   margin-top: 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -220,9 +200,9 @@
   padding: 10px 14px;
   border-radius: 4px;
   font-size: 13px;
-  background: rgba(42, 109, 212, 0.1);
-  color: #7eaaed;
-  border: 1px solid rgba(42, 109, 212, 0.25);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: color-mix(in srgb, var(--primary) 70%, var(--fg));
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
 }
 
 /* Action buttons bar */
@@ -231,43 +211,6 @@
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 24px;
-}
-
-.sponsorblock-admin-btn {
-  padding: 8px 18px;
-  border: none;
-  border-radius: 4px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  color: #fff;
-  background: #00b300;
-  transition: background 0.15s;
-}
-
-.sponsorblock-admin-btn:hover {
-  background: #009a00;
-}
-
-.sponsorblock-admin-btn:disabled {
-  background: #555;
-  cursor: not-allowed;
-}
-
-.sponsorblock-admin-btn--secondary {
-  background: #2a6dd4;
-}
-
-.sponsorblock-admin-btn--secondary:hover {
-  background: #1f5bb8;
-}
-
-.sponsorblock-admin-btn--danger {
-  background: #e74c3c;
-}
-
-.sponsorblock-admin-btn--danger:hover {
-  background: #c0392b;
 }
 
 /* Status message */
@@ -279,15 +222,15 @@
 }
 
 .sponsorblock-admin-message--success {
-  background: rgba(0, 179, 0, 0.15);
-  color: #00b300;
-  border: 1px solid rgba(0, 179, 0, 0.3);
+  background: color-mix(in srgb, var(--green) 15%, transparent);
+  color: var(--green);
+  border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
 }
 
 .sponsorblock-admin-message--error {
-  background: rgba(231, 76, 60, 0.15);
-  color: #e74c3c;
-  border: 1px solid rgba(231, 76, 60, 0.3);
+  background: color-mix(in srgb, var(--red) 15%, transparent);
+  color: var(--red);
+  border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
 }
 
 /* Mappings table */
@@ -304,8 +247,8 @@
 .sponsorblock-admin-table th {
   text-align: left;
   padding: 10px 12px;
-  border-bottom: 2px solid #333;
-  color: #999;
+  border-bottom: 2px solid var(--bg-secondary-400);
+  color: var(--fg-500);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -314,7 +257,7 @@
 
 .sponsorblock-admin-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid var(--bg-secondary-400);
   vertical-align: middle;
 }
 
@@ -323,63 +266,18 @@
 }
 
 .sponsorblock-admin-table code {
-  background: #2a2a2a;
+  background: var(--bg-secondary-600);
   padding: 2px 6px;
   border-radius: 3px;
   font-family: monospace;
   font-size: 12px;
-  color: #ccc;
+  color: var(--fg);
 }
 
 /* Row action buttons */
 .sponsorblock-admin-row-actions {
   display: flex;
   gap: 6px;
-}
-
-.sponsorblock-admin-row-btn {
-  padding: 4px 10px;
-  border: none;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  color: #fff;
-  background: #444;
-  transition: background 0.15s;
-}
-
-.sponsorblock-admin-row-btn:hover {
-  background: #555;
-}
-
-.sponsorblock-admin-row-btn--sync {
-  background: #2a6dd4;
-}
-
-.sponsorblock-admin-row-btn--sync:hover {
-  background: #1f5bb8;
-}
-
-.sponsorblock-admin-row-btn--process {
-  background: #00b300;
-}
-
-.sponsorblock-admin-row-btn--process:hover {
-  background: #009a00;
-}
-
-.sponsorblock-admin-row-btn--delete {
-  background: #e74c3c;
-}
-
-.sponsorblock-admin-row-btn--delete:hover {
-  background: #c0392b;
-}
-
-.sponsorblock-admin-row-btn:disabled {
-  background: #555;
-  cursor: not-allowed;
 }
 
 /* Queue status badges */
@@ -397,24 +295,24 @@
 }
 
 .sponsorblock-admin-badge--processing {
-  background: rgba(42, 109, 212, 0.2);
-  color: #5b9aef;
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  color: var(--primary);
 }
 
 .sponsorblock-admin-badge--done {
-  background: rgba(0, 179, 0, 0.2);
-  color: #00b300;
+  background: color-mix(in srgb, var(--green) 20%, transparent);
+  color: var(--green);
 }
 
 .sponsorblock-admin-badge--error {
-  background: rgba(231, 76, 60, 0.2);
-  color: #e74c3c;
+  background: color-mix(in srgb, var(--red) 20%, transparent);
+  color: var(--red);
 }
 
 /* Empty state */
 .sponsorblock-admin-empty {
   text-align: center;
-  color: #666;
+  color: var(--fg-500);
   padding: 40px 20px;
   font-size: 14px;
 }

@@ -60,7 +60,7 @@ function register({ registerHook, peertubeHelpers }) {
         if (user && (user.role === 0 || user.role === 1)) {
           renderMappingWidget(video.uuid);
         }
-      } catch (e) {
+      } catch {
         // Not logged in or can't get user — skip widget
       }
     }
@@ -205,7 +205,7 @@ function register({ registerHook, peertubeHelpers }) {
       if (resp.ok) {
         currentMapping = await resp.json();
       }
-    } catch (e) {
+    } catch {
       // No mapping yet
     }
 
@@ -249,7 +249,7 @@ function register({ registerHook, peertubeHelpers }) {
     form.appendChild(input);
 
     const btn = document.createElement('button');
-    btn.className = 'sponsorblock-widget-btn';
+    btn.className = 'peertube-button-small primary-button';
     btn.textContent = linkBtn;
     form.appendChild(btn);
 
@@ -330,7 +330,7 @@ function register({ registerHook, peertubeHelpers }) {
         currentDiv.appendChild(codeEl);
         input.value = '';
 
-      } catch (e) {
+      } catch {
         status.textContent = await translate('mapping-error') || 'Error linking video.';
         status.classList.add('error');
       } finally {

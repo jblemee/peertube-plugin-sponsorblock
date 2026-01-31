@@ -86,11 +86,11 @@ async function initDashboard(peertubeHelpers) {
   actionsRow.className = 'sponsorblock-admin-actions';
   root.appendChild(actionsRow);
 
-  const scanBtn = await createButton(t, 'admin-btn-scan', 'sponsorblock-admin-btn');
+  const scanBtn = await createButton(t, 'admin-btn-scan', 'peertube-button primary-button');
   scanBtn.title = await t('admin-btn-scan-desc') || 'Scan the video import table for YouTube URLs and create mappings for new videos';
-  const syncAllBtn = await createButton(t, 'admin-btn-sync-all', 'sponsorblock-admin-btn sponsorblock-admin-btn--secondary');
+  const syncAllBtn = await createButton(t, 'admin-btn-sync-all', 'peertube-button secondary-button');
   syncAllBtn.title = await t('admin-btn-sync-all-desc') || 'Re-fetch SponsorBlock segments for all mapped videos';
-  const processAllBtn = await createButton(t, 'admin-btn-process-all', 'sponsorblock-admin-btn sponsorblock-admin-btn--secondary');
+  const processAllBtn = await createButton(t, 'admin-btn-process-all', 'peertube-button secondary-button');
   processAllBtn.title = await t('admin-btn-process-all-desc') || 'Queue all mapped videos for permanent segment removal (requires FFmpeg)';
 
   actionsRow.appendChild(scanBtn);
@@ -295,7 +295,7 @@ async function refreshTable(baseUrl, peertubeHelpers, t, tableWrap, messageEl) {
       actionsDiv.className = 'sponsorblock-admin-row-actions';
 
       const syncBtn = document.createElement('button');
-      syncBtn.className = 'sponsorblock-admin-row-btn sponsorblock-admin-row-btn--sync';
+      syncBtn.className = 'peertube-button-small secondary-button';
       syncBtn.textContent = await t('admin-action-sync') || 'Sync';
       syncBtn.addEventListener('click', async () => {
         syncBtn.disabled = true;
@@ -311,7 +311,7 @@ async function refreshTable(baseUrl, peertubeHelpers, t, tableWrap, messageEl) {
       });
 
       const processBtn = document.createElement('button');
-      processBtn.className = 'sponsorblock-admin-row-btn sponsorblock-admin-row-btn--process';
+      processBtn.className = 'peertube-button-small primary-button';
       processBtn.textContent = await t('admin-action-process') || 'Process';
       if (mapping.segments_removed) {
         processBtn.disabled = true;
@@ -331,7 +331,7 @@ async function refreshTable(baseUrl, peertubeHelpers, t, tableWrap, messageEl) {
       });
 
       const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'sponsorblock-admin-row-btn sponsorblock-admin-row-btn--delete';
+      deleteBtn.className = 'peertube-button-small danger-button';
       deleteBtn.textContent = await t('admin-action-delete') || 'Delete';
       deleteBtn.addEventListener('click', async () => {
         const confirmMsg = await t('admin-delete-confirm') || 'Delete mapping for this video?';
