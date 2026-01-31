@@ -53,7 +53,23 @@ function createRateLimiter(maxTokens, windowMs) {
   }
 }
 
-async function registerRoutes({ router, peertubeHelpers }) {
+const ALL_CATEGORIES = [
+  'sponsor', 'selfpromo', 'interaction', 'intro', 'outro',
+  'preview', 'music_offtopic', 'filler'
+]
+
+async function getEnabledCategories(settingsManager) {
+  const enabled = []
+  for (const cat of ALL_CATEGORIES) {
+    const value = await settingsManager.getSetting(`category_${cat}`)
+    if (value === true || value === 'true') {
+      enabled.push(cat)
+    }
+  }
+  return enabled
+}
+
+async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
   const logger = peertubeHelpers.logger
 
   // Rate limiter: 60 requests per minute per IP for public endpoints
@@ -88,7 +104,17 @@ async function registerRoutes({ router, peertubeHelpers }) {
 
       const youtubeId = mappings[0].youtube_id
 
-      // Get segments
+      // Get enabled categories from settings
+      const enabledCategories = await getEnabledCategories(settingsManager)
+
+      if (enabledCategories.length === 0) {
+        return res.json({ videoUuid, youtubeId, segments: [] })
+      }
+
+      // Build parameterized placeholders for categories ($2, $3, ...)
+      const categoryPlaceholders = enabledCategories.map((_, i) => `$${i + 2}`).join(', ')
+
+      // Get segments filtered by enabled categories
       const [segments] = await database.query(`
         SELECT
           segment_uuid,
@@ -99,8 +125,9 @@ async function registerRoutes({ router, peertubeHelpers }) {
           votes
         FROM plugin_sponsorblock_segments
         WHERE youtube_id = $1
+          AND category IN (${categoryPlaceholders})
         ORDER BY start_time ASC
-      `, { bind: [youtubeId] })
+      `, { bind: [youtubeId, ...enabledCategories] })
 
       res.json({
         videoUuid,

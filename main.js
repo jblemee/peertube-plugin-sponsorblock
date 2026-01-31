@@ -100,7 +100,7 @@ async function register({
 
   // Register API routes
   const router = getRouter()
-  await registerRoutes({ router, peertubeHelpers })
+  await registerRoutes({ router, peertubeHelpers, settingsManager })
 
   // Register hooks for video import
   registerImportHooks(registerHook, peertubeHelpers, settingsManager)
