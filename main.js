@@ -601,8 +601,12 @@ async function startWorker(peertubeHelpers, settingsManager) {
         }
 
         // Regenerate storyboard from the best available file
-        const bestFile = videoFiles.find(f => f.type === 'web-video') || videoFiles[0];
-        await regenerateStoryboard(bestFile.path, job.video_uuid, database, storagePath, logger);
+        const bestFile = videoFiles.find(f => f.type === 'web-video') || videoFiles.find(f => f.type === 'original') || videoFiles[0];
+        if (!bestFile) {
+          logger.warn(`Job ${job.id}: no suitable file found for storyboard regeneration, skipping`);
+        } else {
+          await regenerateStoryboard(bestFile.path, job.video_uuid, database, storagePath, logger);
+        }
 
         // Mark job as done
         await database.query(`

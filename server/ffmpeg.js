@@ -421,6 +421,13 @@ async function regenerateStoryboard(videoPath, videoUuid, database, storagePath,
 
   // Step 7: Generate new sprite sheet via FFmpeg
   const storyboardPath = path.join(storagePath, 'storyboards', storyboardRow.filename);
+  const storyboardDir = path.join(storagePath, 'storyboards');
+
+  // Ensure storyboards directory exists
+  if (!await fileExists(storyboardDir)) {
+    logger.warn(`Storyboard: storyboards directory does not exist at ${storyboardDir}, skipping`);
+    return;
+  }
 
   try {
     await execFileAsync('ffmpeg', [
@@ -431,7 +438,7 @@ async function regenerateStoryboard(videoPath, videoUuid, database, storagePath,
       '-frames:v', '1',
       '-q:v', '2',
       storyboardPath
-    ], { timeout: 300000 });
+    ], { timeout: FFMPEG_TIMEOUT_MS });
 
     logger.info(`Storyboard: generated sprite sheet ${storyboardRow.filename} (${gridW}x${gridH} grid, ${totalSprites} sprites)`);
   } catch (error) {
