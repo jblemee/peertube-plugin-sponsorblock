@@ -19,3 +19,5 @@ The research, architecture design, and documentation were created through an int
 - All code files (comments, variable names, log messages) must be written in English.
 - Translation files (`languages/*.json`) contain localized strings and are the only exception.
 - Never add `Co-Authored-By` or any AI attribution in git commits.
+- Before every commit, run `npm run lint` to ensure code quality and fix any linting issues.
+- Before every commit, run `npm audit` to check for security vulnerabilities in dependencies.

@@ -35,15 +35,21 @@
   "clientScripts": [
     {
       "script": "client/common.js",
-      "scopes": ["common"]
+      "scopes": [
+        "common"
+      ]
     },
     {
       "script": "client/video-watch.js",
-      "scopes": ["video-watch"]
+      "scopes": [
+        "video-watch"
+      ]
     },
     {
       "script": "client/admin.js",
-      "scopes": ["admin-plugin"]
+      "scopes": [
+        "admin-plugin"
+      ]
     }
   ],
   "translations": {
@@ -56,6 +62,6 @@
     "test": "echo 'No tests yet' && exit 0"
   },
   "devDependencies": {
-    "eslint": "^8.0.0"
+    "eslint": "^8.57.1"
   }
 }
