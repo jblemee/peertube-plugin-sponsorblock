@@ -4,6 +4,9 @@
  */
 
 const { registerRoutes } = require('./server/routes')
+const { getVideoDuration, processVideoFile, findVideoFiles } = require('./server/ffmpeg')
+
+let workerIntervalId = null
 
 async function register({
   registerHook,
@@ -40,8 +43,10 @@ async function register({
 }
 
 async function unregister() {
-  // Cleanup tasks on plugin unload
-  return
+  if (workerIntervalId) {
+    clearInterval(workerIntervalId)
+    workerIntervalId = null
+  }
 }
 
 /**
@@ -105,6 +110,15 @@ function registerSettings(registerSetting) {
     type: 'input-checkbox',
     default: true,
     descriptionHTML: 'Display a notification when a segment is skipped'
+  })
+
+  registerSetting({
+    name: 'storage_path',
+    label: 'PeerTube storage path',
+    type: 'input',
+    default: '/var/www/peertube/storage',
+    private: true,
+    descriptionHTML: 'Absolute path to the PeerTube storage directory. Required for remove mode.'
   })
 }
 
@@ -273,7 +287,7 @@ async function saveYouTubeMapping(peertubeHelpers, peertubeUuid, youtubeId) {
     VALUES ($1, $2)
     ON CONFLICT (peertube_uuid) DO UPDATE
       SET youtube_id = $2, last_sync = NOW()
-  `, [peertubeUuid, youtubeId])
+  `, { bind: [peertubeUuid, youtubeId] })
 }
 
 /**
@@ -304,7 +318,7 @@ async function fetchAndCacheSegments(peertubeHelpers, settingsManager, youtubeId
     // Delete old segments
     await database.query(`
       DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
-    `, [youtubeId])
+    `, { bind: [youtubeId] })
 
     // Insert new segments
     for (const segment of segments) {
@@ -313,7 +327,7 @@ async function fetchAndCacheSegments(peertubeHelpers, settingsManager, youtubeId
         (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (segment_uuid) DO NOTHING
-      `, [
+      `, { bind: [
         youtubeId,
         segment.UUID,
         segment.segment[0],
@@ -321,7 +335,7 @@ async function fetchAndCacheSegments(peertubeHelpers, settingsManager, youtubeId
         segment.category,
         segment.actionType || 'skip',
         segment.votes || 0
-      ])
+      ] })
     }
 
     logger.info(`Cached ${segments.length} segments for ${youtubeId}`)
@@ -345,7 +359,7 @@ async function queueVideoProcessing(peertubeHelpers, videoUuid, youtubeId) {
       FROM plugin_sponsorblock_segments
       WHERE youtube_id = $1
       ORDER BY start_time ASC
-    `, [youtubeId])
+    `, { bind: [youtubeId] })
 
     if (!segments || segments.length === 0) {
       logger.debug(`No segments to process for ${videoUuid}`)
@@ -357,7 +371,7 @@ async function queueVideoProcessing(peertubeHelpers, videoUuid, youtubeId) {
       INSERT INTO plugin_sponsorblock_processing_queue
       (video_uuid, youtube_id, segments, priority)
       VALUES ($1, $2, $3, 10)
-    `, [videoUuid, youtubeId, JSON.stringify(segments)])
+    `, { bind: [videoUuid, youtubeId, JSON.stringify(segments)] })
 
     logger.info(`Queued video ${videoUuid} for processing (${segments.length} segments)`)
 
@@ -371,11 +385,93 @@ async function queueVideoProcessing(peertubeHelpers, videoUuid, youtubeId) {
  */
 async function startWorker(peertubeHelpers, settingsManager) {
   const logger = peertubeHelpers.logger
+  const database = peertubeHelpers.database
 
-  // TODO: Implement worker for remove mode
-  // This will process videos in the queue and remove segments using FFmpeg
+  let processing = false
 
-  logger.info('Background worker initialized (processing not yet implemented)')
+  workerIntervalId = setInterval(async () => {
+    if (processing) return
+
+    try {
+      const mode = await settingsManager.getSetting('mode')
+      if (mode !== 'remove') return
+
+      processing = true
+
+      // Claim next pending job using advisory lock pattern
+      const [claimed] = await database.query(`
+        UPDATE plugin_sponsorblock_processing_queue
+        SET status = 'processing', started_at = NOW()
+        WHERE id = (
+          SELECT id FROM plugin_sponsorblock_processing_queue
+          WHERE status = 'pending'
+          ORDER BY priority DESC, created_at ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING *
+      `)
+
+      if (!claimed || claimed.length === 0) {
+        return
+      }
+
+      const job = claimed[0]
+      logger.info(`Worker claimed job ${job.id} for video ${job.video_uuid}`)
+
+      try {
+        const storagePath = await settingsManager.getSetting('storage_path') || '/var/www/peertube/storage'
+        const videoFiles = await findVideoFiles(database, job.video_uuid, storagePath, logger)
+
+        if (videoFiles.length === 0) {
+          throw new Error('No local video files found')
+        }
+
+        const segments = typeof job.segments === 'string' ? JSON.parse(job.segments) : job.segments
+
+        for (const file of videoFiles) {
+          logger.info(`Processing file: ${file.type} - ${file.path}`)
+          const duration = await getVideoDuration(file.path)
+          await processVideoFile(file.path, segments, duration, logger)
+        }
+
+        // Mark as done
+        await database.query(`
+          UPDATE plugin_sponsorblock_processing_queue
+          SET status = 'done', completed_at = NOW()
+          WHERE id = $1
+        `, { bind: [job.id] })
+
+        logger.info(`Job ${job.id} completed successfully`)
+
+      } catch (error) {
+        logger.error(`Job ${job.id} failed`, error)
+
+        const newRetryCount = (job.retry_count || 0) + 1
+        const maxRetries = job.max_retries || 3
+
+        if (newRetryCount >= maxRetries) {
+          await database.query(`
+            UPDATE plugin_sponsorblock_processing_queue
+            SET status = 'error', error = $2, retry_count = $3, completed_at = NOW()
+            WHERE id = $1
+          `, { bind: [job.id, String(error.message), newRetryCount] })
+        } else {
+          await database.query(`
+            UPDATE plugin_sponsorblock_processing_queue
+            SET status = 'pending', error = $2, retry_count = $3, started_at = NULL
+            WHERE id = $1
+          `, { bind: [job.id, String(error.message), newRetryCount] })
+        }
+      }
+    } catch (error) {
+      logger.error('Worker error', error)
+    } finally {
+      processing = false
+    }
+  }, 30000)
+
+  logger.info('Background worker started (30s polling)')
 }
 
 module.exports = {

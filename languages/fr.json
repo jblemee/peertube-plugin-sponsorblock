@@ -25,5 +25,13 @@
   "mapping-error": "Erreur lors de la liaison.",
   "mapping-invalid-id": "ID YouTube invalide.",
   "mapping-current": "Lié à :",
-  "mapping-no-segments": "Lié, mais aucun segment trouvé sur SponsorBlock."
+  "mapping-no-segments": "Lié, mais aucun segment trouvé sur SponsorBlock.",
+  "storage-path": "Chemin du stockage PeerTube",
+  "storage-path-description": "Chemin absolu vers le répertoire de stockage PeerTube. Requis pour le mode suppression.",
+  "process-queued": "Vidéo mise en file d'attente ({count} segments).",
+  "process-already-queued": "Cette vidéo est déjà en file d'attente ou en cours de traitement.",
+  "process-no-segments": "Aucun segment à traiter pour cette vidéo.",
+  "process-no-mapping": "Aucune correspondance YouTube trouvée pour cette vidéo.",
+  "process-all-queued": "{count} vidéo(s) mise(s) en file d'attente.",
+  "process-error": "Une erreur est survenue lors de la mise en file d'attente."
 }

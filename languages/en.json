@@ -25,5 +25,13 @@
   "mapping-error": "Error linking video.",
   "mapping-invalid-id": "Invalid YouTube ID.",
   "mapping-current": "Linked to:",
-  "mapping-no-segments": "Linked, but no segments found on SponsorBlock."
+  "mapping-no-segments": "Linked, but no segments found on SponsorBlock.",
+  "storage-path": "PeerTube storage path",
+  "storage-path-description": "Absolute path to the PeerTube storage directory. Required for remove mode.",
+  "process-queued": "Video queued for processing ({count} segments).",
+  "process-already-queued": "This video is already queued or being processed.",
+  "process-no-segments": "No segments found to process for this video.",
+  "process-no-mapping": "No YouTube mapping found for this video.",
+  "process-all-queued": "{count} video(s) queued for processing.",
+  "process-error": "An error occurred while queuing video for processing."
 }

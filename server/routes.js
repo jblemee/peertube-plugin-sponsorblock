@@ -19,7 +19,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
       const [mappings] = await database.query(`
         SELECT youtube_id FROM plugin_sponsorblock_mapping
         WHERE peertube_uuid = $1
-      `, [videoUuid])
+      `, { bind: [videoUuid] })
 
       if (!mappings || mappings.length === 0) {
         return res.status(404).json({
@@ -42,7 +42,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
         FROM plugin_sponsorblock_segments
         WHERE youtube_id = $1
         ORDER BY start_time ASC
-      `, [youtubeId])
+      `, { bind: [youtubeId] })
 
       res.json({
         videoUuid,
@@ -73,7 +73,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
         SELECT youtube_id, created_at, last_sync
         FROM plugin_sponsorblock_mapping
         WHERE peertube_uuid = $1
-      `, [videoUuid])
+      `, { bind: [videoUuid] })
 
       if (!mappings || mappings.length === 0) {
         return res.status(404).json({
@@ -127,7 +127,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
         INSERT INTO plugin_sponsorblock_mapping (peertube_uuid, youtube_id, created_at, last_sync)
         VALUES ($1, $2, NOW(), NOW())
         ON CONFLICT (peertube_uuid) DO UPDATE SET youtube_id = $2, last_sync = NOW()
-      `, [videoUuid, youtubeId])
+      `, { bind: [videoUuid, youtubeId] })
 
       // Fetch segments from SponsorBlock
       const segments = await fetchAndCacheSegments(database, youtubeId, logger)
@@ -184,7 +184,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
         // Check if mapping already exists
         const [existing] = await database.query(`
           SELECT 1 FROM plugin_sponsorblock_mapping WHERE peertube_uuid = $1
-        `, [row.uuid])
+        `, { bind: [row.uuid] })
 
         if (existing && existing.length > 0) continue
 
@@ -193,7 +193,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
           INSERT INTO plugin_sponsorblock_mapping (peertube_uuid, youtube_id, created_at, last_sync)
           VALUES ($1, $2, NOW(), NOW())
           ON CONFLICT (peertube_uuid) DO NOTHING
-        `, [row.uuid, youtubeId])
+        `, { bind: [row.uuid, youtubeId] })
 
         // Fetch segments
         try {
@@ -215,6 +215,134 @@ async function registerRoutes({ router, peertubeHelpers }) {
   })
 
   /**
+   * POST /process/:videoUuid
+   * Queue a single video for FFmpeg segment removal
+   */
+  router.post('/process/:videoUuid', async (req, res) => {
+    const videoUuid = req.params.videoUuid
+
+    try {
+      // Auth check: admin/moderator only
+      const user = await peertubeHelpers.user.getAuthUser(res)
+      if (!user || (user.role !== 0 && user.role !== 1)) {
+        return res.status(403).json({ error: 'Admin or moderator access required' })
+      }
+
+      const database = peertubeHelpers.database
+
+      // Get YouTube ID mapping
+      const [mappings] = await database.query(
+        'SELECT youtube_id FROM plugin_sponsorblock_mapping WHERE peertube_uuid = $1',
+        { bind: [videoUuid] }
+      )
+
+      if (!mappings || mappings.length === 0) {
+        return res.status(404).json({ error: 'process-no-mapping' })
+      }
+
+      const youtubeId = mappings[0].youtube_id
+
+      // Get segments
+      const [segments] = await database.query(
+        'SELECT start_time, end_time, category FROM plugin_sponsorblock_segments WHERE youtube_id = $1 ORDER BY start_time ASC',
+        { bind: [youtubeId] }
+      )
+
+      if (!segments || segments.length === 0) {
+        return res.status(404).json({ error: 'process-no-segments' })
+      }
+
+      // Check for existing pending/processing entry
+      const [existing] = await database.query(
+        "SELECT id FROM plugin_sponsorblock_processing_queue WHERE video_uuid = $1 AND status IN ('pending', 'processing')",
+        { bind: [videoUuid] }
+      )
+
+      if (existing && existing.length > 0) {
+        return res.status(409).json({ error: 'process-already-queued' })
+      }
+
+      // Insert into queue with priority 5
+      const [inserted] = await database.query(`
+        INSERT INTO plugin_sponsorblock_processing_queue (video_uuid, youtube_id, segments, priority)
+        VALUES ($1, $2, $3, 5)
+        RETURNING id
+      `, { bind: [videoUuid, youtubeId, JSON.stringify(segments)] })
+
+      logger.info(`Queued video ${videoUuid} for processing (${segments.length} segments, priority 5)`)
+
+      res.json({
+        success: true,
+        queueId: inserted[0].id,
+        segmentsCount: segments.length
+      })
+
+    } catch (error) {
+      logger.error('Error queuing video for processing', error)
+      res.status(500).json({ error: 'process-error' })
+    }
+  })
+
+  /**
+   * POST /process-all
+   * Queue all mapped videos that have segments but no pending/done queue entry
+   */
+  router.post('/process-all', async (req, res) => {
+    try {
+      // Auth check: admin/moderator only
+      const user = await peertubeHelpers.user.getAuthUser(res)
+      if (!user || (user.role !== 0 && user.role !== 1)) {
+        return res.status(403).json({ error: 'Admin or moderator access required' })
+      }
+
+      const database = peertubeHelpers.database
+
+      // Find all mappings with segments that have no done/pending/processing queue entry
+      const [candidates] = await database.query(`
+        SELECT DISTINCT m.peertube_uuid, m.youtube_id
+        FROM plugin_sponsorblock_mapping m
+        INNER JOIN plugin_sponsorblock_segments s ON s.youtube_id = m.youtube_id
+        WHERE NOT EXISTS (
+          SELECT 1 FROM plugin_sponsorblock_processing_queue q
+          WHERE q.video_uuid = m.peertube_uuid
+            AND q.status IN ('done', 'pending', 'processing')
+        )
+      `)
+
+      let queued = 0
+      const errors = []
+
+      for (const candidate of (candidates || [])) {
+        try {
+          const [segments] = await database.query(
+            'SELECT start_time, end_time, category FROM plugin_sponsorblock_segments WHERE youtube_id = $1 ORDER BY start_time ASC',
+            { bind: [candidate.youtube_id] }
+          )
+
+          if (!segments || segments.length === 0) continue
+
+          await database.query(`
+            INSERT INTO plugin_sponsorblock_processing_queue (video_uuid, youtube_id, segments, priority)
+            VALUES ($1, $2, $3, 1)
+          `, { bind: [candidate.peertube_uuid, candidate.youtube_id, JSON.stringify(segments)] })
+
+          queued++
+        } catch (err) {
+          errors.push(`${candidate.peertube_uuid}: ${err.message}`)
+        }
+      }
+
+      logger.info(`Process-all: queued ${queued} videos, ${errors.length} errors`)
+
+      res.json({ success: true, queued, errors })
+
+    } catch (error) {
+      logger.error('Error in process-all', error)
+      res.status(500).json({ error: 'process-error' })
+    }
+  })
+
+  /**
    * POST /sync/:videoUuid
    * Manually trigger sync for a video
    */
@@ -228,7 +356,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
       const [mappings] = await database.query(`
         SELECT youtube_id FROM plugin_sponsorblock_mapping
         WHERE peertube_uuid = $1
-      `, [videoUuid])
+      `, { bind: [videoUuid] })
 
       if (!mappings || mappings.length === 0) {
         return res.status(404).json({
@@ -253,7 +381,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
       // Delete old segments
       await database.query(`
         DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
-      `, [youtubeId])
+      `, { bind: [youtubeId] })
 
       // Insert new segments
       let insertedCount = 0
@@ -263,7 +391,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
           (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (segment_uuid) DO NOTHING
-        `, [
+        `, { bind: [
           youtubeId,
           segment.UUID,
           segment.segment[0],
@@ -271,7 +399,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
           segment.category,
           segment.actionType || 'skip',
           segment.votes || 0
-        ])
+        ] })
         insertedCount++
       }
 
@@ -280,7 +408,7 @@ async function registerRoutes({ router, peertubeHelpers }) {
         UPDATE plugin_sponsorblock_mapping
         SET last_sync = NOW()
         WHERE peertube_uuid = $1
-      `, [videoUuid])
+      `, { bind: [videoUuid] })
 
       logger.info(`Synced ${insertedCount} segments for ${videoUuid}`)
 
@@ -351,7 +479,7 @@ async function fetchAndCacheSegments(database, youtubeId, logger) {
   // Delete old segments
   await database.query(`
     DELETE FROM plugin_sponsorblock_segments WHERE youtube_id = $1
-  `, [youtubeId])
+  `, { bind: [youtubeId] })
 
   // Insert new segments
   const segments = []
@@ -361,7 +489,7 @@ async function fetchAndCacheSegments(database, youtubeId, logger) {
       (youtube_id, segment_uuid, start_time, end_time, category, action_type, votes)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (segment_uuid) DO NOTHING
-    `, [
+    `, { bind: [
       youtubeId,
       segment.UUID,
       segment.segment[0],
@@ -369,7 +497,7 @@ async function fetchAndCacheSegments(database, youtubeId, logger) {
       segment.category,
       segment.actionType || 'skip',
       segment.votes || 0
-    ])
+    ] })
     segments.push({
       segment_uuid: segment.UUID,
       start_time: segment.segment[0],
