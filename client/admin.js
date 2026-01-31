@@ -234,8 +234,7 @@ async function refreshTable(baseUrl, peertubeHelpers, t, tableWrap, messageEl) {
         tdVideo.appendChild(link)
       } else {
         const uuidCode = document.createElement('code')
-        uuidCode.textContent = mapping.peertube_uuid.substring(0, 8) + '…'
-        uuidCode.title = mapping.peertube_uuid
+        uuidCode.textContent = mapping.peertube_uuid
         tdVideo.appendChild(uuidCode)
       }
       tr.appendChild(tdVideo)
