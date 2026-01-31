@@ -1,0 +1,36 @@
+# Development files
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Documentation (except README.md)
+RESEARCH.md
+TECHNICAL_ANALYSIS.md
+DEVELOPMENT.md
+AGENT.md
+
+# Tests
+tests/
+*.test.js
+jest.config.js
+
+# Build tools
+scripts/
+webpack.config.js
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Node modules (should be installed on target)
+node_modules/

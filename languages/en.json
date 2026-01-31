@@ -1,0 +1,21 @@
+{
+  "operation-mode": "Operation mode",
+  "skip-segments": "Skip segments (client-side)",
+  "remove-segments": "Remove segments permanently (experimental)",
+  "mode-description": "Skip mode: Segments are skipped during playback. Remove mode: Segments are permanently deleted from video files (requires FFmpeg).",
+  "category-sponsor": "Sponsors",
+  "category-selfpromo": "Self-promotion",
+  "category-interaction": "Interaction reminders",
+  "category-intro": "Intros",
+  "category-outro": "Outros",
+  "category-preview": "Previews/Recaps",
+  "category-music": "Off-topic music",
+  "category-filler": "Filler content",
+  "api-url": "SponsorBlock API URL",
+  "cache-duration": "Cache duration (hours)",
+  "cache-description": "How long to cache SponsorBlock segments before refreshing",
+  "show-notifications": "Show skip notifications",
+  "notifications-description": "Display a notification when a segment is skipped",
+  "skipped-segment": "Skipped {category} ({duration}s)",
+  "no-segments": "No sponsor segments found for this video"
+}

@@ -1,0 +1,21 @@
+{
+  "operation-mode": "Mode d'opération",
+  "skip-segments": "Sauter les segments (côté client)",
+  "remove-segments": "Supprimer les segments définitivement (expérimental)",
+  "mode-description": "Mode saut : Les segments sont sautés pendant la lecture. Mode suppression : Les segments sont définitivement supprimés des fichiers vidéo (nécessite FFmpeg).",
+  "category-sponsor": "Sponsors",
+  "category-selfpromo": "Auto-promotion",
+  "category-interaction": "Rappels d'interaction",
+  "category-intro": "Intros",
+  "category-outro": "Outros",
+  "category-preview": "Aperçus/Récapitulatifs",
+  "category-music": "Musique hors-sujet",
+  "category-filler": "Contenu de remplissage",
+  "api-url": "URL de l'API SponsorBlock",
+  "cache-duration": "Durée du cache (heures)",
+  "cache-description": "Durée de conservation des segments SponsorBlock en cache avant actualisation",
+  "show-notifications": "Afficher les notifications de saut",
+  "notifications-description": "Afficher une notification lorsqu'un segment est sauté",
+  "skipped-segment": "{category} sauté ({duration}s)",
+  "no-segments": "Aucun segment sponsor trouvé pour cette vidéo"
+}

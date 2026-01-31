@@ -1,0 +1,57 @@
+{
+  "name": "peertube-plugin-sponsorblock",
+  "version": "0.1.0",
+  "description": "Automatically skip or remove sponsor segments in videos imported from YouTube using the SponsorBlock API",
+  "license": "AGPL-3.0",
+  "engine": {
+    "peertube": ">=6.0.0"
+  },
+  "keywords": [
+    "peertube",
+    "plugin",
+    "sponsorblock",
+    "youtube",
+    "sponsor",
+    "skip",
+    "segments"
+  ],
+  "homepage": "https://github.com/jblemee/peertube-plugin-sponsorblock",
+  "bugs": "https://github.com/jblemee/peertube-plugin-sponsorblock/issues",
+  "author": {
+    "name": "Jean-Baptiste L.",
+    "email": "git@lemee.co"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jblemee/peertube-plugin-sponsorblock.git"
+  },
+  "library": "./main.js",
+  "staticDirs": {
+    "images": "assets/images"
+  },
+  "css": [
+    "assets/style.css"
+  ],
+  "clientScripts": [
+    {
+      "script": "client/common.js",
+      "scopes": ["common"]
+    },
+    {
+      "script": "client/video-watch.js",
+      "scopes": ["video-watch"]
+    }
+  ],
+  "translations": {
+    "en": "./languages/en.json",
+    "fr": "./languages/fr.json"
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "lint": "eslint .",
+    "test": "echo 'No tests yet' && exit 0"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0"
+  }
+}

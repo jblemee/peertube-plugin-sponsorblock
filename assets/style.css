@@ -1,0 +1,84 @@
+/**
+ * PeerTube Plugin SponsorBlock
+ * Custom styles
+ */
+
+/* Segment markers on progress bar */
+.sponsorblock-marker {
+  position: absolute;
+  height: 100%;
+  background-color: rgba(0, 255, 0, 0.6);
+  pointer-events: none;
+  z-index: 30;
+  transition: background-color 0.2s ease;
+}
+
+.sponsorblock-marker:hover {
+  background-color: rgba(0, 255, 0, 0.8);
+}
+
+/* Sponsor category colors */
+.sponsorblock-marker[data-category="sponsor"] {
+  background-color: rgba(0, 255, 0, 0.6);
+}
+
+.sponsorblock-marker[data-category="selfpromo"] {
+  background-color: rgba(255, 255, 0, 0.6);
+}
+
+.sponsorblock-marker[data-category="interaction"] {
+  background-color: rgba(0, 191, 255, 0.6);
+}
+
+.sponsorblock-marker[data-category="intro"] {
+  background-color: rgba(0, 255, 255, 0.6);
+}
+
+.sponsorblock-marker[data-category="outro"] {
+  background-color: rgba(0, 32, 255, 0.6);
+}
+
+.sponsorblock-marker[data-category="preview"] {
+  background-color: rgba(255, 128, 0, 0.6);
+}
+
+.sponsorblock-marker[data-category="music_offtopic"] {
+  background-color: rgba(255, 0, 255, 0.6);
+}
+
+.sponsorblock-marker[data-category="filler"] {
+  background-color: rgba(127, 0, 255, 0.6);
+}
+
+/* Skip notification styling */
+.sponsorblock-notification {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 14px;
+  z-index: 9999;
+  animation: fadeInOut 3s ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
