@@ -89,10 +89,20 @@ function register({ registerHook, peertubeHelpers }) {
     if (skippingActive) return
     skippingActive = true
 
+    // Access the native HTML5 <video> element (PeerTube v8 wraps Video.js)
+    const videoEl = player.el
+      ? player.el().querySelector('video')
+      : document.querySelector('.vjs-tech')
+
+    if (!videoEl) {
+      console.error('[SponsorBlock] Could not find video element')
+      return
+    }
+
     let lastCheckTime = 0
 
-    player.on('timeupdate', () => {
-      const currentTime = player.currentTime()
+    videoEl.addEventListener('timeupdate', () => {
+      const currentTime = videoEl.currentTime
 
       // Throttle checks to avoid performance issues
       if (Math.abs(currentTime - lastCheckTime) < 0.5) {
@@ -109,7 +119,7 @@ function register({ registerHook, peertubeHelpers }) {
           if (!skippedSegments.has(segmentKey)) {
             console.log(`[SponsorBlock] Skipping ${segment.category} segment: ${segment.start_time}s - ${segment.end_time}s`)
 
-            player.currentTime(segment.end_time)
+            videoEl.currentTime = segment.end_time
             skippedSegments.add(segmentKey)
 
             // Show notification
@@ -315,21 +325,30 @@ function register({ registerHook, peertubeHelpers }) {
     if (!player || segments.length === 0) return
 
     try {
-      const progressControl = player.controlBar.progressControl
-      if (!progressControl) return
+      // Access seek bar element with fallback for PeerTube v8 wrapper
+      let seekBarEl
+      try {
+        seekBarEl = player.controlBar.progressControl.seekBar.el()
+      } catch {
+        seekBarEl = document.querySelector('.vjs-progress-holder')
+      }
+      if (!seekBarEl) return
 
-      const seekBar = progressControl.seekBar
-      if (!seekBar) return
+      // Access the native HTML5 <video> element for duration
+      const videoEl = player.el
+        ? player.el().querySelector('video')
+        : document.querySelector('.vjs-tech')
+      if (!videoEl) return
 
-      const duration = player.duration()
-      if (!duration || duration === Infinity) {
+      const duration = videoEl.duration
+      if (!duration || duration === Infinity || isNaN(duration)) {
         // Wait for duration to be available
-        player.one('durationchange', () => addProgressBarMarkers(player))
+        videoEl.addEventListener('durationchange', () => addProgressBarMarkers(player), { once: true })
         return
       }
 
       // Remove existing markers
-      const existingMarkers = seekBar.el().querySelectorAll('.sponsorblock-marker')
+      const existingMarkers = seekBarEl.querySelectorAll('.sponsorblock-marker')
       existingMarkers.forEach(marker => marker.remove())
 
       // Add markers for each segment
@@ -350,7 +369,7 @@ function register({ registerHook, peertubeHelpers }) {
         `
         marker.title = `${segment.category}: ${segment.start_time}s - ${segment.end_time}s`
 
-        seekBar.el().appendChild(marker)
+        seekBarEl.appendChild(marker)
       })
 
       console.log(`[SponsorBlock] Added ${segments.length} progress bar markers`)
