@@ -27,7 +27,7 @@ function findOrCreateContainer() {
 
   const container = document.createElement('div')
   container.id = 'sponsorblock-admin-dashboard'
-  form.parentNode.insertBefore(container, form)
+  form.parentNode.insertBefore(container, form.nextSibling)
   return container
 }
 
