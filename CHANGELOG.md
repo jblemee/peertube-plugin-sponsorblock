@@ -54,5 +54,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Express routes for API endpoints
 - Settings management system
 
-[Unreleased]: https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/compare/v0.1.0...HEAD
-[0.1.0]: https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/releases/tag/v0.1.0
+[Unreleased]: https://github.com/jblemee/peertube-plugin-sponsorblock/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/jblemee/peertube-plugin-sponsorblock/releases/tag/v0.1.0

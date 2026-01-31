@@ -14,7 +14,7 @@ This document explains how to develop and test the PeerTube SponsorBlock plugin.
 ### 1. Clone the project
 
 ```bash
-git clone https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock.git
+git clone https://github.com/jblemee/peertube-plugin-sponsorblock.git
 cd peertube-plugin-sponsorblock
 ```
 
@@ -309,4 +309,4 @@ The plugin will be automatically indexed by PeerTube if published on NPM with th
 ## Support
 
 To report a bug or request a feature:
-https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/issues
+https://github.com/jblemee/peertube-plugin-sponsorblock/issues

@@ -10,7 +10,7 @@ This guide covers installation, configuration, and usage of the SponsorBlock plu
 
 ```bash
 # Clone the repository
-git clone https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock.git
+git clone https://github.com/jblemee/peertube-plugin-sponsorblock.git
 
 # Install from the PeerTube directory
 cd /var/www/peertube

@@ -12,7 +12,7 @@ Allow PeerTube instances to leverage the crowdsourced SponsorBlock database to i
 
 Phase 1 (client-side skip), Phase 2 (admin dashboard & periodic sync), and Phase 3 (permanent removal) are implemented.
 
-See the [User Guide](https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/src/branch/develop/USER_GUIDE.md) for installation and usage instructions.
+See the [User Guide](https://github.com/jblemee/peertube-plugin-sponsorblock/blob/develop/USER_GUIDE.md) for installation and usage instructions.
 
 ## Features
 
@@ -80,12 +80,12 @@ See the [User Guide](https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/src
 
 ## Documentation
 
-- [User Guide](https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/src/branch/develop/USER_GUIDE.md) — Installation, configuration, and usage guide for instance administrators
-- [Development Guide](https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/src/branch/develop/DEVELOPMENT.md) — Development setup, project structure, testing, and contributing
-- [Changelog](https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/src/branch/develop/CHANGELOG.md) — Version history and release notes
-- [TODO](https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/src/branch/develop/TODO.md) — Roadmap, planned features, and known issues
-- [Research](https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/src/branch/develop/RESEARCH.md) — State-of-the-art research and PeerTube plugin capabilities
-- [Technical Analysis](https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/src/branch/develop/TECHNICAL_ANALYSIS.md) — Technical analysis of permanent segment removal with FFmpeg
+- [User Guide](https://github.com/jblemee/peertube-plugin-sponsorblock/blob/develop/USER_GUIDE.md) — Installation, configuration, and usage guide for instance administrators
+- [Development Guide](https://github.com/jblemee/peertube-plugin-sponsorblock/blob/develop/DEVELOPMENT.md) — Development setup, project structure, testing, and contributing
+- [Changelog](https://github.com/jblemee/peertube-plugin-sponsorblock/blob/develop/CHANGELOG.md) — Version history and release notes
+- [TODO](https://github.com/jblemee/peertube-plugin-sponsorblock/blob/develop/TODO.md) — Roadmap, planned features, and known issues
+- [Research](https://github.com/jblemee/peertube-plugin-sponsorblock/blob/develop/RESEARCH.md) — State-of-the-art research and PeerTube plugin capabilities
+- [Technical Analysis](https://github.com/jblemee/peertube-plugin-sponsorblock/blob/develop/TECHNICAL_ANALYSIS.md) — Technical analysis of permanent segment removal with FFmpeg
 
 ## Research highlights
 
