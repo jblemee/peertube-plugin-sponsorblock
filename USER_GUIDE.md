@@ -6,17 +6,13 @@ This guide covers installation, configuration, and usage of the SponsorBlock plu
 
 ## 1. Installation
 
-### From NPM (recommended)
+### From source
 
 ```bash
-cd /var/www/peertube
-sudo -u peertube NODE_CONFIG_DIR=/var/www/peertube/config NODE_ENV=production \
-  npm run plugin:install -- --npm-name peertube-plugin-sponsorblock
-```
+# Clone the repository
+git clone https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock.git
 
-### From local directory
-
-```bash
+# Install from the PeerTube directory
 cd /var/www/peertube
 sudo -u peertube NODE_CONFIG_DIR=/var/www/peertube/config NODE_ENV=production \
   npm run plugin:install -- --plugin-path /path/to/peertube-plugin-sponsorblock
@@ -25,9 +21,20 @@ sudo -u peertube NODE_CONFIG_DIR=/var/www/peertube/config NODE_ENV=production \
 ### Docker
 
 ```bash
+# Clone inside the container or mount the plugin directory, then:
 docker exec -it <peertube_container> \
-  npm run plugin:install -- --npm-name peertube-plugin-sponsorblock
+  npm run plugin:install -- --plugin-path /path/to/peertube-plugin-sponsorblock
 docker restart <peertube_container>
+```
+
+### From NPM (when published)
+
+Once the plugin is published to the npm registry, you will be able to install it directly:
+
+```bash
+cd /var/www/peertube
+sudo -u peertube NODE_CONFIG_DIR=/var/www/peertube/config NODE_ENV=production \
+  npm run plugin:install -- --npm-name peertube-plugin-sponsorblock
 ```
 
 After installation, go to **Administration > Plugins/Themes** and verify the plugin is listed and enabled.
@@ -293,6 +300,10 @@ curl -X POST http://your-instance/plugins/sponsorblock/router/scan \
 ---
 
 ## 11. Uninstallation
+
+Via the PeerTube admin interface: **Administration > Plugins/Themes > SponsorBlock > Uninstall**.
+
+Or via CLI:
 
 ```bash
 cd /var/www/peertube

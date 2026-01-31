@@ -15,15 +15,15 @@
     "skip",
     "segments"
   ],
-  "homepage": "https://github.com/jblemee/peertube-plugin-sponsorblock",
-  "bugs": "https://github.com/jblemee/peertube-plugin-sponsorblock/issues",
+  "homepage": "https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock",
+  "bugs": "https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock/issues",
   "author": {
     "name": "Jean-Baptiste L.",
     "email": "git@lemee.co"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jblemee/peertube-plugin-sponsorblock.git"
+    "url": "https://git.ut0pia.org/jbl/peertube-plugin-sponsorblock.git"
   },
   "library": "./main.js",
   "staticDirs": {
