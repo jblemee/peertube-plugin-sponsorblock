@@ -340,9 +340,9 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
 
       const database = peertubeHelpers.database
 
-      // Get YouTube ID mapping
+      // Get YouTube ID mapping and removal status
       const [mappings] = await database.query(
-        'SELECT youtube_id FROM plugin_sponsorblock_mapping WHERE peertube_uuid = $1',
+        'SELECT youtube_id, segments_removed FROM plugin_sponsorblock_mapping WHERE peertube_uuid = $1',
         { bind: [videoUuid] }
       )
 
@@ -362,7 +362,12 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
         return res.status(404).json({ error: 'process-no-segments' })
       }
 
-      // Check for existing pending/processing entry
+      // Block if already processed
+      if (mappings[0].segments_removed) {
+        return res.status(409).json({ error: 'process-already-done' })
+      }
+
+      // Block if already queued or in progress
       const [existing] = await database.query(
         "SELECT id FROM plugin_sponsorblock_processing_queue WHERE video_uuid = $1 AND status IN ('pending', 'processing')",
         { bind: [videoUuid] }
@@ -516,6 +521,7 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
           m.youtube_id,
           m.created_at,
           m.last_sync,
+          m.segments_removed,
           v.name AS video_name,
           COALESCE(seg.segment_count, 0) AS segment_count,
           COALESCE(seg.time_saved, 0) AS time_saved,

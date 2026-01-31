@@ -313,6 +313,10 @@ async function refreshTable(baseUrl, peertubeHelpers, t, tableWrap, messageEl) {
       const processBtn = document.createElement('button')
       processBtn.className = 'sponsorblock-admin-row-btn sponsorblock-admin-row-btn--process'
       processBtn.textContent = await t('admin-action-process') || 'Process'
+      if (mapping.segments_removed) {
+        processBtn.disabled = true
+        processBtn.title = await t('admin-btn-process-done') || 'Segments already removed from this video'
+      }
       processBtn.addEventListener('click', async () => {
         processBtn.disabled = true
         try {

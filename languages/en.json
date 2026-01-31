@@ -78,5 +78,8 @@
   "admin-last-sync-never": "Never",
   "admin-last-sync-ago": "{time} ago",
 
-  "admin-note-remove": "Note: Permanent removal (Process) removes all SponsorBlock segment types regardless of the category checkboxes above. Category settings only affect client-side skipping."
+  "admin-note-remove": "Note: Permanent removal (Process) removes all SponsorBlock segment types regardless of the category checkboxes above. Category settings only affect client-side skipping.",
+
+  "admin-btn-process-done": "Segments already removed from this video",
+  "admin-process-already-done": "This video has already been processed."
 }
