@@ -13,9 +13,21 @@ function register({ registerHook, peertubeHelpers }) {
   })
 }
 
+async function waitForElement(id, maxRetries = 20, intervalMs = 200) {
+  for (let i = 0; i < maxRetries; i++) {
+    const el = document.getElementById(id)
+    if (el) return el
+    await new Promise(resolve => setTimeout(resolve, intervalMs))
+  }
+  return null
+}
+
 async function initDashboard(peertubeHelpers) {
-  const container = document.getElementById('sponsorblock-admin-dashboard')
-  if (!container) return
+  const container = await waitForElement('sponsorblock-admin-dashboard')
+  if (!container) {
+    console.error('[SponsorBlock] Admin dashboard container not found after retries')
+    return
+  }
 
   const baseUrl = peertubeHelpers.getBaseRouterRoute()
   const t = (key) => peertubeHelpers.translate(key)
