@@ -136,7 +136,7 @@ async function initDatabase(peertubeHelpers) {
       CREATE TABLE IF NOT EXISTS plugin_sponsorblock_segments (
         id SERIAL PRIMARY KEY,
         youtube_id VARCHAR(11) NOT NULL,
-        segment_uuid UUID NOT NULL,
+        segment_uuid VARCHAR(128) NOT NULL,
         start_time FLOAT NOT NULL,
         end_time FLOAT NOT NULL,
         category VARCHAR(50) NOT NULL,

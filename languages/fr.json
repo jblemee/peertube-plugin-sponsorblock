@@ -17,5 +17,13 @@
   "show-notifications": "Afficher les notifications de saut",
   "notifications-description": "Afficher une notification lorsqu'un segment est sauté",
   "skipped-segment": "{category} sauté ({duration}s)",
-  "no-segments": "Aucun segment sponsor trouvé pour cette vidéo"
+  "no-segments": "Aucun segment sponsor trouvé pour cette vidéo",
+  "mapping-label": "SponsorBlock",
+  "mapping-placeholder": "ID YouTube ou URL",
+  "mapping-link-btn": "Lier",
+  "mapping-success": "Lié ! {count} segment(s) trouvé(s).",
+  "mapping-error": "Erreur lors de la liaison.",
+  "mapping-invalid-id": "ID YouTube invalide.",
+  "mapping-current": "Lié à :",
+  "mapping-no-segments": "Lié, mais aucun segment trouvé sur SponsorBlock."
 }

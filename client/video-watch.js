@@ -9,6 +9,8 @@ function register({ registerHook, peertubeHelpers }) {
   let segments = []
   let skippedSegments = new Set()
   let currentVideo = null
+  let skippingActive = false
+  let playerRef = null
 
   // Hook: When video is loaded
   registerHook({
@@ -19,6 +21,8 @@ function register({ registerHook, peertubeHelpers }) {
       currentVideo = video
       segments = []
       skippedSegments.clear()
+      skippingActive = false
+      playerRef = videojs
 
       try {
         // Fetch segments for this video
@@ -32,6 +36,16 @@ function register({ registerHook, peertubeHelpers }) {
         }
       } catch (error) {
         console.error('[SponsorBlock] Failed to fetch segments:', error)
+      }
+
+      // Show mapping widget for admins/moderators
+      try {
+        const user = await peertubeHelpers.getUser()
+        if (user && (user.role === 0 || user.role === 1)) {
+          renderMappingWidget(video.uuid)
+        }
+      } catch (e) {
+        // Not logged in or can't get user — skip widget
       }
     }
   })
@@ -70,6 +84,10 @@ function register({ registerHook, peertubeHelpers }) {
    */
   function setupSegmentSkipping(player) {
     if (!player) return
+
+    // Avoid doubling listeners if skipping was already set up
+    if (skippingActive) return
+    skippingActive = true
 
     let lastCheckTime = 0
 
@@ -129,6 +147,165 @@ function register({ registerHook, peertubeHelpers }) {
       'SponsorBlock',
       3000
     )
+  }
+
+  /**
+   * Render the mapping widget for admins/moderators
+   */
+  async function renderMappingWidget(videoUuid) {
+    // Remove any existing widget
+    const existing = document.querySelector('.sponsorblock-widget')
+    if (existing) existing.remove()
+
+    // Find the container below the player
+    const container = document.querySelector('.video-info')
+    if (!container) return
+
+    const widget = document.createElement('div')
+    widget.className = 'sponsorblock-widget'
+
+    // Check for existing mapping
+    let currentMapping = null
+    try {
+      const baseUrl = window.location.origin
+      const resp = await fetch(
+        `${baseUrl}/plugins/sponsorblock/router/mapping/${videoUuid}`,
+        { headers: peertubeHelpers.getAuthHeader() }
+      )
+      if (resp.ok) {
+        currentMapping = await resp.json()
+      }
+    } catch (e) {
+      // No mapping yet
+    }
+
+    const translate = (key) => peertubeHelpers.translate(key)
+
+    const label = await translate('mapping-label') || 'SponsorBlock'
+    const placeholder = await translate('mapping-placeholder') || 'YouTube ID or URL'
+    const linkBtn = await translate('mapping-link-btn') || 'Link'
+    const currentLabel = await translate('mapping-current') || 'Linked to:'
+
+    // Build toggle label
+    const toggle = document.createElement('span')
+    toggle.className = 'sponsorblock-widget-toggle'
+    toggle.textContent = `▶ ${label}`
+    widget.appendChild(toggle)
+
+    // Collapsible content
+    const content = document.createElement('div')
+    content.style.display = 'none'
+
+    // Show current mapping if any
+    const currentDiv = document.createElement('div')
+    currentDiv.className = 'sponsorblock-widget-current'
+    if (currentMapping) {
+      currentDiv.innerHTML = `${currentLabel} <code>${currentMapping.youtube_id}</code>`
+    }
+    content.appendChild(currentDiv)
+
+    // Form row
+    const form = document.createElement('div')
+    form.className = 'sponsorblock-widget-form'
+
+    const input = document.createElement('input')
+    input.type = 'text'
+    input.className = 'sponsorblock-widget-input'
+    input.placeholder = placeholder
+    form.appendChild(input)
+
+    const btn = document.createElement('button')
+    btn.className = 'sponsorblock-widget-btn'
+    btn.textContent = linkBtn
+    form.appendChild(btn)
+
+    content.appendChild(form)
+
+    // Status message
+    const status = document.createElement('div')
+    status.className = 'sponsorblock-widget-status'
+    content.appendChild(status)
+
+    widget.appendChild(content)
+
+    // Toggle open/close
+    toggle.addEventListener('click', () => {
+      const open = content.style.display !== 'none'
+      content.style.display = open ? 'none' : 'block'
+      toggle.textContent = `${open ? '▶' : '▼'} ${label}`
+    })
+
+    // Submit mapping
+    btn.addEventListener('click', async () => {
+      const value = input.value.trim()
+      if (!value) return
+
+      btn.disabled = true
+      status.textContent = ''
+      status.className = 'sponsorblock-widget-status'
+
+      try {
+        const baseUrl = window.location.origin
+        const resp = await fetch(
+          `${baseUrl}/plugins/sponsorblock/router/mapping/${videoUuid}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...peertubeHelpers.getAuthHeader()
+            },
+            body: JSON.stringify({ youtubeId: value })
+          }
+        )
+
+        const data = await resp.json()
+
+        if (!resp.ok) {
+          const errorMsg = data.error === 'Invalid YouTube ID format'
+            ? (await translate('mapping-invalid-id') || 'Invalid YouTube ID.')
+            : (await translate('mapping-error') || 'Error linking video.')
+          status.textContent = errorMsg
+          status.classList.add('error')
+          return
+        }
+
+        // Update segments and activate skipping
+        segments = data.segments || []
+        skippedSegments.clear()
+
+        if (segments.length > 0) {
+          const successMsg = (await translate('mapping-success') || 'Linked! {count} segment(s) found.')
+            .replace('{count}', segments.length)
+          status.textContent = successMsg
+          status.classList.add('success')
+
+          if (playerRef) {
+            setupSegmentSkipping(playerRef)
+            addProgressBarMarkers(playerRef)
+          }
+        } else {
+          status.textContent = await translate('mapping-no-segments') || 'Linked, but no segments found on SponsorBlock.'
+          status.classList.add('success')
+        }
+
+        // Update current mapping display
+        currentDiv.innerHTML = `${currentLabel} <code>${data.youtubeId}</code>`
+        input.value = ''
+
+      } catch (e) {
+        status.textContent = await translate('mapping-error') || 'Error linking video.'
+        status.classList.add('error')
+      } finally {
+        btn.disabled = false
+      }
+    })
+
+    // Allow Enter key to submit
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') btn.click()
+    })
+
+    container.prepend(widget)
   }
 
   /**

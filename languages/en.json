@@ -17,5 +17,13 @@
   "show-notifications": "Show skip notifications",
   "notifications-description": "Display a notification when a segment is skipped",
   "skipped-segment": "Skipped {category} ({duration}s)",
-  "no-segments": "No sponsor segments found for this video"
+  "no-segments": "No sponsor segments found for this video",
+  "mapping-label": "SponsorBlock",
+  "mapping-placeholder": "YouTube ID or URL",
+  "mapping-link-btn": "Link",
+  "mapping-success": "Linked! {count} segment(s) found.",
+  "mapping-error": "Error linking video.",
+  "mapping-invalid-id": "Invalid YouTube ID.",
+  "mapping-current": "Linked to:",
+  "mapping-no-segments": "Linked, but no segments found on SponsorBlock."
 }
