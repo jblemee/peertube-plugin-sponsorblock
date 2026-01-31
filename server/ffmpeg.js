@@ -227,6 +227,94 @@ async function findVideoFiles(database, videoUuid, storagePath, logger) {
   return files
 }
 
+/**
+ * After processing an HLS fMP4 file, regenerate the .m3u8 playlist
+ * and the segments-sha256.json hash manifest
+ */
+async function regenerateHlsMetadata(fmp4Path, logger) {
+  const dir = path.dirname(fmp4Path)
+  const fmp4Name = path.basename(fmp4Path)
+  // {uuid}-{resolution}-fragmented.mp4 -> {uuid}-{resolution}.m3u8
+  const m3u8Name = fmp4Name.replace('-fragmented.mp4', '.m3u8')
+  const m3u8Path = path.join(dir, m3u8Name)
+
+  const tmpDir = path.join(os.tmpdir(), `sponsorblock-hls-${crypto.randomBytes(8).toString('hex')}`)
+  await fsPromises.mkdir(tmpDir, { recursive: true })
+
+  try {
+    const tmpM3u8 = path.join(tmpDir, 'output.m3u8')
+    const tmpFmp4 = path.join(tmpDir, 'output.mp4')
+
+    // Regenerate HLS playlist + fMP4 from the processed file
+    await execFileAsync('ffmpeg', [
+      '-y',
+      '-i', fmp4Path,
+      '-c', 'copy',
+      '-f', 'hls',
+      '-hls_segment_type', 'fmp4',
+      '-hls_flags', 'single_file',
+      '-hls_playlist_type', 'vod',
+      '-hls_time', '10',
+      tmpM3u8
+    ], { timeout: 300000 })
+
+    // Replace the fMP4 and m3u8 with regenerated versions
+    await fsPromises.copyFile(tmpFmp4, fmp4Path)
+    await fsPromises.copyFile(tmpM3u8, m3u8Path)
+
+    logger.info(`Regenerated HLS playlist: ${m3u8Name}`)
+  } finally {
+    await fsPromises.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+  }
+
+  // Regenerate segments-sha256.json for the entire HLS directory
+  await regenerateSegmentHashes(dir, logger)
+}
+
+/**
+ * Regenerate segments-sha256.json by parsing all m3u8 playlists
+ * and computing SHA-256 hashes for each byte range
+ */
+async function regenerateSegmentHashes(hlsDir, logger) {
+  const sha256Path = path.join(hlsDir, 'segments-sha256.json')
+  const hashes = {}
+
+  const entries = await fsPromises.readdir(hlsDir)
+  const m3u8Files = entries.filter(e => e.endsWith('.m3u8') && e !== 'master.m3u8')
+
+  for (const m3u8File of m3u8Files) {
+    const m3u8Content = await fsPromises.readFile(path.join(hlsDir, m3u8File), 'utf8')
+    const fmp4Name = m3u8File.replace('.m3u8', '-fragmented.mp4')
+    const fmp4Path = path.join(hlsDir, fmp4Name)
+
+    if (!await fileExists(fmp4Path)) continue
+
+    const fmp4Data = await fsPromises.readFile(fmp4Path)
+    const lines = m3u8Content.split('\n')
+
+    for (const line of lines) {
+      if (!line.startsWith('#EXT-X-BYTERANGE:') && !line.startsWith('#EXT-X-MAP:')) continue
+
+      let length, offset
+      const byterangeMatch = line.match(/#EXT-X-BYTERANGE:(\d+)@(\d+)/)
+      const mapMatch = line.match(/BYTERANGE="(\d+)@(\d+)"/)
+      const match = byterangeMatch || mapMatch
+
+      if (!match) continue
+
+      length = parseInt(match[1])
+      offset = parseInt(match[2])
+
+      const segment = fmp4Data.slice(offset, offset + length)
+      const hash = crypto.createHash('sha256').update(segment).digest('hex')
+      hashes[`${fmp4Name}/${offset}-${offset + length}`] = hash
+    }
+  }
+
+  await fsPromises.writeFile(sha256Path, JSON.stringify(hashes))
+  logger.info(`Regenerated segment hashes: ${Object.keys(hashes).length} entries`)
+}
+
 async function fileExists(filePath) {
   try {
     await fsPromises.access(filePath, fs.constants.F_OK)
@@ -240,5 +328,6 @@ module.exports = {
   getVideoDuration,
   computeKeepSegments,
   processVideoFile,
-  findVideoFiles
+  findVideoFiles,
+  regenerateHlsMetadata
 }

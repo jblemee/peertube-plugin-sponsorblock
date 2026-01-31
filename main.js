@@ -4,7 +4,7 @@
  */
 
 const { registerRoutes, ALL_CATEGORIES } = require('./server/routes')
-const { getVideoDuration, processVideoFile, findVideoFiles } = require('./server/ffmpeg')
+const { getVideoDuration, processVideoFile, findVideoFiles, regenerateHlsMetadata } = require('./server/ffmpeg')
 const { URL } = require('url')
 
 const CATEGORIES_PARAM = `&categories=${encodeURIComponent(JSON.stringify(ALL_CATEGORIES))}`
@@ -565,6 +565,10 @@ async function startWorker(peertubeHelpers, settingsManager) {
           logger.info(`Processing file: ${file.type} - ${file.path}`)
           const duration = await getVideoDuration(file.path)
           await processVideoFile(file.path, segments, duration, logger)
+
+          if (file.type === 'hls') {
+            await regenerateHlsMetadata(file.path, logger)
+          }
         }
 
         // Mark as done
