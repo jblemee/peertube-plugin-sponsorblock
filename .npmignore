@@ -3,12 +3,19 @@
 .gitignore
 .vscode/
 .idea/
+.claude/
+.env
+.env.*
 
-# Documentation (except README.md)
+# Documentation (only README.md and LICENSE are shipped)
 RESEARCH.md
 TECHNICAL_ANALYSIS.md
 DEVELOPMENT.md
 AGENT.md
+CLAUDE.md
+TODO.md
+USER_GUIDE.md
+CHANGELOG.md
 
 # Tests
 tests/
