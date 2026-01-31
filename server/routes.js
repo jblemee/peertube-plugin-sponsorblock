@@ -58,6 +58,8 @@ const ALL_CATEGORIES = [
   'preview', 'music_offtopic', 'filler'
 ]
 
+const CATEGORIES_PARAM = `&categories=${encodeURIComponent(JSON.stringify(ALL_CATEGORIES))}`
+
 async function getEnabledCategories(settingsManager) {
   const enabled = []
   for (const cat of ALL_CATEGORIES) {
@@ -680,7 +682,7 @@ async function registerRoutes({ router, peertubeHelpers, settingsManager }) {
 
       // Fetch fresh segments
       const apiUrl = 'https://sponsor.ajay.app'
-      const response = await fetch(`${apiUrl}/api/skipSegments?videoID=${youtubeId}`)
+      const response = await fetch(`${apiUrl}/api/skipSegments?videoID=${youtubeId}${CATEGORIES_PARAM}`)
 
       if (!response.ok) {
         return res.status(response.status).json({
@@ -803,7 +805,7 @@ function validateSegment(segment) {
  */
 async function fetchAndCacheSegments(database, youtubeId, logger) {
   const apiUrl = 'https://sponsor.ajay.app'
-  const response = await fetch(`${apiUrl}/api/skipSegments?videoID=${youtubeId}`)
+  const response = await fetch(`${apiUrl}/api/skipSegments?videoID=${youtubeId}${CATEGORIES_PARAM}`)
 
   if (response.status === 404) {
     // No segments found on SponsorBlock — not an error
@@ -861,4 +863,4 @@ async function fetchAndCacheSegments(database, youtubeId, logger) {
   }
 }
 
-module.exports = { registerRoutes }
+module.exports = { registerRoutes, ALL_CATEGORIES }

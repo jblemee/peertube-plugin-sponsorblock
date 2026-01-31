@@ -3,9 +3,11 @@
  * Main entry point for server-side plugin
  */
 
-const { registerRoutes } = require('./server/routes')
+const { registerRoutes, ALL_CATEGORIES } = require('./server/routes')
 const { getVideoDuration, processVideoFile, findVideoFiles } = require('./server/ffmpeg')
 const { URL } = require('url')
+
+const CATEGORIES_PARAM = `&categories=${encodeURIComponent(JSON.stringify(ALL_CATEGORIES))}`
 
 /**
  * Validate that an API URL is safe (not targeting internal/private networks)
@@ -390,7 +392,7 @@ async function fetchAndCacheSegments(peertubeHelpers, settingsManager, youtubeId
   try {
     const apiUrl = await settingsManager.getSetting('api_url') || 'https://sponsor.ajay.app'
     validateApiUrl(apiUrl)
-    const url = `${apiUrl}/api/skipSegments?videoID=${youtubeId}`
+    const url = `${apiUrl}/api/skipSegments?videoID=${youtubeId}${CATEGORIES_PARAM}`
 
     logger.debug(`Fetching SponsorBlock segments for ${youtubeId}`)
 
@@ -608,7 +610,7 @@ function startSyncTimer(peertubeHelpers, settingsManager) {
 
       for (const mapping of (mappings || [])) {
         try {
-          const response = await fetch(`${apiUrl}/api/skipSegments?videoID=${mapping.youtube_id}`)
+          const response = await fetch(`${apiUrl}/api/skipSegments?videoID=${mapping.youtube_id}${CATEGORIES_PARAM}`)
 
           if (response.ok) {
             const apiSegments = await response.json()
