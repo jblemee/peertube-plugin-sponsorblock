@@ -207,11 +207,6 @@ function registerSettings(registerSetting) {
     descriptionHTML: 'Automatically re-fetch segments for all mapped videos at this interval. Set to 0 to disable.'
   })
 
-  registerSetting({
-    name: 'admin-dashboard-container',
-    type: 'html',
-    html: '<div id="sponsorblock-admin-dashboard"></div>'
-  })
 }
 
 /**

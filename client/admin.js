@@ -13,19 +13,31 @@ function register({ registerHook, peertubeHelpers }) {
   })
 }
 
-async function waitForElement(id, maxRetries = 20, intervalMs = 200) {
-  for (let i = 0; i < maxRetries; i++) {
-    const el = document.getElementById(id)
-    if (el) return el
-    await new Promise(resolve => setTimeout(resolve, intervalMs))
-  }
-  return null
+function findOrCreateContainer() {
+  // Try the html setting container first
+  const existing = document.getElementById('sponsorblock-admin-dashboard')
+  if (existing) return existing
+
+  // Fallback: find the settings form and inject before it
+  const form = document.querySelector('my-plugin-show-installed form')
+    || document.querySelector('.plugin-show-installed form')
+    || document.querySelector('form')
+
+  if (!form) return null
+
+  const container = document.createElement('div')
+  container.id = 'sponsorblock-admin-dashboard'
+  form.parentNode.insertBefore(container, form)
+  return container
 }
 
 async function initDashboard(peertubeHelpers) {
-  const container = await waitForElement('sponsorblock-admin-dashboard')
+  // Wait a tick for Angular to finish rendering
+  await new Promise(resolve => setTimeout(resolve, 100))
+
+  const container = findOrCreateContainer()
   if (!container) {
-    console.error('[SponsorBlock] Admin dashboard container not found after retries')
+    console.error('[SponsorBlock] Could not find or create dashboard container')
     return
   }
 
