@@ -315,6 +315,140 @@ async function regenerateSegmentHashes(hlsDir, logger) {
   logger.info(`Regenerated segment hashes: ${Object.keys(hashes).length} entries`)
 }
 
+/**
+ * Regenerate storyboard sprite sheet after segment removal
+ * Replicates PeerTube's storyboard generation algorithm
+ */
+async function regenerateStoryboard(videoPath, videoUuid, database, storagePath, logger) {
+  const SPRITE_MAX_SIZE = 192
+  const SPRITES_MAX_EDGE_COUNT = 11
+
+  // Step 1: Get video dimensions via ffprobe
+  let width, height
+  try {
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height',
+      '-of', 'json',
+      videoPath
+    ])
+    const probe = JSON.parse(stdout)
+    const stream = probe.streams && probe.streams[0]
+    if (!stream || !stream.width || !stream.height) {
+      logger.error(`Storyboard: ffprobe returned no video stream for ${videoPath}`)
+      return
+    }
+    width = stream.width
+    height = stream.height
+  } catch (error) {
+    logger.error(`Storyboard: ffprobe failed for ${videoPath}`, error)
+    return
+  }
+
+  // Step 2: Compute sprite size (replicate PeerTube logic)
+  const ratio = width / height
+  const isPortrait = height > width
+  let spriteWidth, spriteHeight
+  if (isPortrait) {
+    spriteHeight = SPRITE_MAX_SIZE
+    spriteWidth = Math.round(SPRITE_MAX_SIZE * ratio)
+  } else {
+    spriteWidth = SPRITE_MAX_SIZE
+    spriteHeight = Math.round(SPRITE_MAX_SIZE / ratio)
+  }
+
+  // Step 3: Get new video duration
+  let duration
+  try {
+    duration = await getVideoDuration(videoPath)
+  } catch (error) {
+    logger.error(`Storyboard: failed to get duration for ${videoPath}`, error)
+    return
+  }
+
+  if (duration < 3) {
+    logger.warn(`Storyboard: video too short (${duration}s), skipping`)
+    return
+  }
+
+  // Step 4: Compute sprite count (replicate PeerTube logic)
+  const maxSprites = Math.min(Math.ceil(duration), SPRITES_MAX_EDGE_COUNT * SPRITES_MAX_EDGE_COUNT)
+  const spriteDuration = Math.ceil(duration / maxSprites)
+  const totalSprites = Math.ceil(duration / spriteDuration)
+
+  // Step 5: Compute grid layout (replicate PeerTube findGridSize)
+  let gridW = 1
+  let gridH = 1
+  for (let w = 1; w <= SPRITES_MAX_EDGE_COUNT; w++) {
+    for (let h = 1; h <= SPRITES_MAX_EDGE_COUNT; h++) {
+      if (w * h >= totalSprites) {
+        if (w * h < gridW * gridH || gridW * gridH < totalSprites) {
+          gridW = w
+          gridH = h
+        }
+      }
+    }
+  }
+
+  // Step 6: Find existing storyboard in DB
+  let storyboardRow
+  try {
+    const [rows] = await database.query(
+      `SELECT s."id", s."filename" FROM "storyboard" s
+       JOIN "video" v ON v."id" = s."videoId"
+       WHERE v."uuid" = $1`,
+      { bind: [videoUuid] }
+    )
+    if (!rows || rows.length === 0) {
+      logger.info(`Storyboard: no storyboard found in DB for ${videoUuid}, skipping`)
+      return
+    }
+    storyboardRow = rows[0]
+  } catch (error) {
+    logger.error(`Storyboard: DB query failed for ${videoUuid}`, error)
+    return
+  }
+
+  // Step 7: Generate new sprite sheet via FFmpeg
+  const storyboardPath = path.join(storagePath, 'storyboards', storyboardRow.filename)
+
+  try {
+    await execFileAsync('ffmpeg', [
+      '-y',
+      '-i', videoPath,
+      '-filter_complex',
+      `setpts='N/FRAME_RATE/TB',select='isnan(prev_selected_t)+gte(t-prev_selected_t,${spriteDuration})',scale=${spriteWidth}:${spriteHeight},tile=layout=${gridW}x${gridH}`,
+      '-frames:v', '1',
+      '-q:v', '2',
+      storyboardPath
+    ], { timeout: 300000 })
+
+    logger.info(`Storyboard: generated sprite sheet ${storyboardRow.filename} (${gridW}x${gridH} grid, ${totalSprites} sprites)`)
+  } catch (error) {
+    logger.error(`Storyboard: FFmpeg generation failed for ${videoUuid}`, error)
+    return
+  }
+
+  // Step 8: Update storyboard table
+  const totalWidth = spriteWidth * gridW
+  const totalHeight = spriteHeight * gridH
+
+  try {
+    await database.query(
+      `UPDATE "storyboard" SET
+        "totalWidth" = $2, "totalHeight" = $3,
+        "spriteWidth" = $4, "spriteHeight" = $5,
+        "spriteDuration" = $6, "updatedAt" = NOW()
+       WHERE "id" = $1`,
+      { bind: [storyboardRow.id, totalWidth, totalHeight, spriteWidth, spriteHeight, spriteDuration] }
+    )
+    logger.info(`Storyboard: updated DB for ${videoUuid} (${totalWidth}x${totalHeight}, sprite ${spriteWidth}x${spriteHeight}, interval ${spriteDuration}s)`)
+  } catch (error) {
+    logger.error(`Storyboard: DB update failed for ${videoUuid}`, error)
+  }
+}
+
 async function fileExists(filePath) {
   try {
     await fsPromises.access(filePath, fs.constants.F_OK)
@@ -329,5 +463,6 @@ module.exports = {
   computeKeepSegments,
   processVideoFile,
   findVideoFiles,
-  regenerateHlsMetadata
+  regenerateHlsMetadata,
+  regenerateStoryboard
 }

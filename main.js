@@ -4,7 +4,7 @@
  */
 
 const { registerRoutes, ALL_CATEGORIES } = require('./server/routes')
-const { getVideoDuration, processVideoFile, findVideoFiles, regenerateHlsMetadata } = require('./server/ffmpeg')
+const { getVideoDuration, processVideoFile, findVideoFiles, regenerateHlsMetadata, regenerateStoryboard } = require('./server/ffmpeg')
 const { URL } = require('url')
 
 const CATEGORIES_PARAM = `&categories=${encodeURIComponent(JSON.stringify(ALL_CATEGORIES))}`
@@ -593,12 +593,16 @@ async function startWorker(peertubeHelpers, settingsManager) {
           logger.info(`Job ${job.id}: cuts already completed, skipping to HLS regeneration`)
         }
 
-        // Phase 2: Regenerate HLS metadata for fragmented MP4 files
+        // Phase 2: Post-processing (HLS regen + storyboard)
         for (const file of videoFiles) {
           if (file.type === 'hls') {
             await regenerateHlsMetadata(file.path, logger)
           }
         }
+
+        // Regenerate storyboard from the best available file
+        const bestFile = videoFiles.find(f => f.type === 'web-video') || videoFiles[0]
+        await regenerateStoryboard(bestFile.path, job.video_uuid, database, storagePath, logger)
 
         // Mark job as done
         await database.query(`
